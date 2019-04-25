@@ -108,33 +108,14 @@ plot_forecast <- function(df) {
         )
 }
 
-# acetaminophen ----------------------------------------
-
-dir_data <- "../acetaminophen_iv/data/tidy/mbo"
-
-data_apap_events <- get_data(dir_data, "apap_events")
-# data_apap_orders <- get_data(dir_data, "apap_orders")
-
-df_apap <- data_apap_events %>%
-    filter(
-        facility_event %in% campus,
-        clinical_event_datetime >= mdy("4/1/2017")
-    ) %>%
-    mutate(med_date = floor_date(clinical_event_datetime, unit = floor_unit)) %>%
-    count(med_date) 
-    
-ts_apap <- tk_ts(df_apap)
-
-fcast_apap <- make_forecast(ts_apap)
-g_apap <- plot_utilization(df_apap)
-g_apap_fcast <- plot_forecast(fcast_apap)
-
 # albumin ----------------------------------------------
 
 dir_data <- "../albumin/data/tidy/mbo"
 
 data_albumin_events <- get_data(dir_data, "albumin_events")
 # data_albumin_orders <- get_data(dir_data, "albumin_orders")
+
+month_end <- max(df_albumin$med_date)
 
 df_albumin <- data_albumin_events %>%
     filter(facility_event %in% campus) %>%
@@ -146,6 +127,28 @@ ts_albumin <- tk_ts(df_albumin)
 fcast_albumin <- make_forecast(ts_albumin)
 g_albumin <- plot_utilization(df_albumin)
 g_albumin_fcast <- plot_forecast(fcast_albumin)
+
+# acetaminophen ----------------------------------------
+
+dir_data <- "../acetaminophen_iv/data/tidy/mbo"
+
+data_apap_events <- get_data(dir_data, "apap_events")
+# data_apap_orders <- get_data(dir_data, "apap_orders")
+
+df_apap <- data_apap_events %>%
+    filter(
+        facility_event %in% campus,
+        clinical_event_datetime >= mdy("4/1/2017"),
+        clinical_event_datetime <= month_end + months(1)
+    ) %>%
+    mutate(med_date = floor_date(clinical_event_datetime, unit = floor_unit)) %>%
+    count(med_date) 
+    
+ts_apap <- tk_ts(df_apap)
+
+fcast_apap <- make_forecast(ts_apap)
+g_apap <- plot_utilization(df_apap)
+g_apap_fcast <- plot_forecast(fcast_apap)
 
 # antibiotics ------------------------------------------
 
@@ -264,7 +267,6 @@ g_pegf_fcast <- plot_forecast(fcast_pegf)
 slide_layout <- "Title and Content"
 slide_master <- "Office Theme"
 title_size <- fp_text(font.size = 32)
-month_end <- max(df_albumin$med_date)
 
 # layout_properties(read_pptx(), layout = "Title Slide", master = slide_master)
 
