@@ -141,7 +141,7 @@ plot_forecast <- function(df) {
 
 # albumin ----------------------------------------------
 
-dir_data <- "../albumin/data/tidy/mbo"
+dir_data <- "data/tidy/albumin"
 
 data_albumin_events <- get_data(dir_data, "albumin_events")
 # data_albumin_orders <- get_data(dir_data, "albumin_orders")
@@ -160,9 +160,10 @@ g_albumin_fcast <- plot_forecast(fcast_albumin)
 
 # acetaminophen ----------------------------------------
 
-dir_data <- "../acetaminophen_iv/data/tidy/mbo"
+dir_data <- "data/tidy/acetaminophen"
 
-data_apap_events <- get_data(dir_data, "apap_events")
+data_apap_events <- get_data(dir_data, "apap_events") %>%
+    distinct()
 # data_apap_orders <- get_data(dir_data, "apap_orders")
 
 df_apap <- data_apap_events %>%
@@ -341,7 +342,7 @@ g_pegf_fcast <- plot_forecast(fcast_pegf)
 
 # sugammadex -------------------------------------------
 
-dir_data <- "../sugammadex/data/tidy/mue"
+dir_data <- "data/tidy/sugammadex"
 data_sug_neo_events <- get_data(dir_data, "sug-neo_events")
 # data_pegfilgrastim_orders <- get_data(dir_data, "pegfilgrastim_orders")
 
