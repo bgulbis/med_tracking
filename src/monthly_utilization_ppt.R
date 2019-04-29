@@ -35,6 +35,39 @@ get_data <- function(path, pattern, col_types = NULL) {
         rename_all(stringr::str_to_lower)
 }
 
+make_df <- function(df, ...) {
+    cnt <- enquos(...)
+    
+    df %>%
+        mutate(
+            med_date = floor_date(clinical_event_datetime, unit = floor_unit),
+            fiscal_year = year(med_date %m+% months(6)),
+            month_plot = month(med_date, label = TRUE, abbr = TRUE)
+        ) %>%
+        count(fiscal_year, month_plot, med_date, !!!cnt) %>%
+        mutate_at("fiscal_year", as_factor) %>%
+        mutate_at(
+            "month_plot", 
+            factor, 
+            ordered = TRUE, 
+            levels = c(
+                "Jul", 
+                "Aug",
+                "Sep",
+                "Oct",
+                "Nov",
+                "Dec",
+                "Jan",
+                "Feb",
+                "Mar",
+                "Apr",
+                "May",
+                "Jun"
+            )
+        ) %>%
+        arrange(med_date)
+}
+
 make_forecast <- function(ts, h = 12) {
     forecast::auto.arima(ts, lambda = 0) %>%
         forecast::forecast(h) %>%
@@ -49,25 +82,21 @@ make_forecast <- function(ts, h = 12) {
 
 plot_utilization <- function(df) {
     df %>%
-        ggplot(aes(x = med_date, y = n)) +
-        geom_line(size = 2) +
-        scale_x_datetime(
-            NULL, 
-            breaks = seq(
-                mdy("1/1/2016", tz = "US/Central"), 
-                now(), 
-                by = "6 months"
-            ),
-            date_labels = "%b %Y"
+        ggplot(aes(x = month_plot, y = n, group = fiscal_year)) +
+        geom_line(
+            aes(color = fiscal_year, alpha = fiscal_year), 
+            size = 2
         ) +
+        xlab(NULL) +
         ylab("Monthly Doses") +
-        # ggtitle(
-        #     paste0(
-        #         "Sugammadex usage predicted to increase by ", 
-        #         chg$change, 
-        #         "% over the next 12-months"
-        #     )
-        # ) +
+        scale_color_manual(
+            "Fiscal Year", 
+            values = c("#377eb8", "#4daf4a", "black")
+        ) +
+        scale_alpha_manual(
+            "Fiscal Year", 
+            values = c(0.4, 0.4, 1)
+        ) +
         expand_limits(y = 0) +
         theme_bg() +
         theme(
@@ -79,8 +108,16 @@ plot_utilization <- function(df) {
 plot_forecast <- function(df) {
     df %>%
         ggplot(aes(x = index, y = n)) +
-        geom_ribbon(aes(ymin = lo.95, ymax = hi.95), fill = "grey85", alpha = 0.5) +
-        geom_ribbon(aes(ymin = lo.80, ymax = hi.80), fill = "grey75", alpha = 0.5) +
+        geom_ribbon(
+            aes(ymin = lo.95, ymax = hi.95), 
+            fill = "grey85",
+            alpha = 0.5
+        ) +
+        geom_ribbon(
+            aes(ymin = lo.80, ymax = hi.80),
+            fill = "grey75", 
+            alpha = 0.5
+        ) +
         geom_line(aes(color = key, linetype = key), size = 2) +
         scale_color_manual(NULL, values = c("black", "blue")) +
         scale_linetype_manual(NULL, values = c("solid", "dashed")) +
@@ -94,13 +131,6 @@ plot_forecast <- function(df) {
             date_labels = "%b %Y"
         ) +
         ylab("Monthly Doses") +
-        # ggtitle(
-        #     paste0(
-        #         "Sugammadex usage predicted to increase by ", 
-        #         chg$change, 
-        #         "% over the next 12-months"
-        #     )
-        # ) +
         expand_limits(y = 0) +
         theme_bg() +
         theme(
@@ -118,8 +148,7 @@ data_albumin_events <- get_data(dir_data, "albumin_events")
 
 df_albumin <- data_albumin_events %>%
     filter(facility_event %in% campus) %>%
-    mutate(med_date = floor_date(clinical_event_datetime, unit = floor_unit)) %>%
-    count(med_date) 
+    make_df()
 
 month_end <- max(df_albumin$med_date)
 
@@ -139,11 +168,10 @@ data_apap_events <- get_data(dir_data, "apap_events")
 df_apap <- data_apap_events %>%
     filter(
         facility_event %in% campus,
-        clinical_event_datetime >= mdy("4/1/2017"),
+        # clinical_event_datetime >= mdy("4/1/2017"),
         clinical_event_datetime <= month_end + months(1)
     ) %>%
-    mutate(med_date = floor_date(clinical_event_datetime, unit = floor_unit)) %>%
-    count(med_date) 
+    make_df()
     
 ts_apap <- tk_ts(df_apap)
 
@@ -159,8 +187,7 @@ data_abx_events <- get_data(dir_data, "antibiotics_events")
 
 df_abx <- data_abx_events %>%
     filter(facility %in% campus) %>%
-    mutate(med_date = floor_date(clinical_event_datetime, unit = floor_unit)) %>%
-    count(med, med_date) 
+    make_df(med)
 
 ts_ceftar <- df_abx %>%
     filter(med == "ceftaroline") %>%
@@ -220,8 +247,8 @@ data_bupiv_orders <- get_data(dir_data, "bupivacaine-liposome_orders")
 
 df_bupiv <- data_bupiv_orders %>%
     filter(facility %in% campus) %>%
-    mutate(med_date = floor_date(order_datetime, unit = floor_unit)) %>%
-    count(med_date) 
+    rename(clinical_event_datetime = order_datetime) %>%
+    make_df()
 
 ts_bupiv <- tk_ts(df_bupiv)
 
@@ -237,14 +264,32 @@ data_calcitonin_events <- get_data(dir_data, "calcitonin_events")
 
 df_calctn <- data_calcitonin_events %>%
     filter(facility %in% campus) %>%
-    mutate(med_date = floor_date(clinical_event_datetime, unit = floor_unit)) %>%
-    count(med_date) 
+    make_df()
 
 ts_calctn <- tk_ts(df_calctn)
 
 fcast_calctn <- make_forecast(ts_calctn)
 g_calctn <- plot_utilization(df_calctn)
 g_calctn_fcast <- plot_forecast(fcast_calctn)
+
+# isoproterenol ----------------------------------------
+
+dir_data <- "data/tidy/isoproterenol"
+data_isoprot_events <- get_data(dir_data, "isoproterenol_events")
+# data_isoprot_orders <- get_data(dir_data, "isoproterenol_orders")
+
+df_isoprot <- data_isoprot_events %>%
+    filter(
+        facility %in% campus,
+        iv_event == "Begin Bag"
+    ) %>%
+    make_df()
+
+ts_isoprot <- tk_ts(df_isoprot)
+
+fcast_isoprot <- make_forecast(ts_isoprot)
+g_isoprot <- plot_utilization(df_isoprot)
+g_isoprot_fcast <- plot_forecast(fcast_isoprot)
 
 # ivig -------------------------------------------------
 
@@ -254,8 +299,7 @@ data_ivig_events <- get_data(dir_data, "ivig_events")
 
 df_ivig <- data_ivig_events %>%
     filter(facility %in% campus) %>%
-    mutate(med_date = floor_date(clinical_event_datetime, unit = floor_unit)) %>%
-    count(med_date) 
+    make_df()
 
 ts_ivig <- tk_ts(df_ivig)
 
@@ -271,15 +315,29 @@ data_pegfilgrastim_events <- get_data(dir_data, "pegfilgrastim_events")
 # data_pegfilgrastim_orders <- get_data(dir_data, "pegfilgrastim_orders")
 
 df_pegf <- data_pegfilgrastim_events %>%
-    # filter(facility %in% campus) %>%
-    mutate(med_date = floor_date(clinical_event_datetime, unit = floor_unit)) %>%
-    count(med_date) 
+    mutate(
+        visit_type = if_else(
+            encounter_type %in% c("Inpatient", "Observation"),
+            "Inpatient",
+            "Outpatient"
+        )
+    ) %>%
+    # filter(!(encounter_type %in% c("Inpatient", "Observation"))) %>%
+    make_df(visit_type)
 
-ts_pegf <- tk_ts(df_pegf)
+ts_pegf <- df_pegf %>%
+    filter(visit_type == "Outpatient") %>%
+    tk_ts()
 
 fcast_pegf <- make_forecast(ts_pegf)
-g_pegf <- plot_utilization(df_pegf)
+g_pegf <- df_pegf %>%
+    filter(visit_type == "Outpatient") %>%
+    plot_utilization()
 g_pegf_fcast <- plot_forecast(fcast_pegf)
+
+# g_pegf_inpt <- df_pegf %>%
+#     filter(visit_type == "Inpatient") %>%
+#     plot_utilization()
 
 # sugammadex -------------------------------------------
 
@@ -293,8 +351,7 @@ df_sug <- data_sug_neo_events %>%
         clinical_event_datetime >= mdy("4/1/2017"),
         med == "sugammadex"
     ) %>%
-    mutate(med_date = floor_date(clinical_event_datetime, unit = floor_unit)) %>%
-    count(med_date) 
+    make_df()
 
 ts_sug <- tk_ts(df_sug)
 
@@ -335,10 +392,13 @@ read_pptx() %>%
     ph_with("Calcitonin", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_calctn, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with("Isoproterenol", location = ph_location_type("title")) %>%
+    ph_with_vg(ggobj = g_isoprot, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("IVIG", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_ivig, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Pegfilgrastim", location = ph_location_type("title")) %>%
+    ph_with("Outpatient Pegfilgrastim", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_pegf, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("Sugammadex", location = ph_location_type("title")) %>%
@@ -391,10 +451,13 @@ read_pptx() %>%
     ph_with("Calcitonin", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_calctn_fcast, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with("Isoproterenol", location = ph_location_type("title")) %>%
+    ph_with_vg(ggobj = g_isoprot_fcast, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("IVIG", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_ivig_fcast, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Pegfilgrastim", location = ph_location_type("title")) %>%
+    ph_with("Outpatient Pegfilgrastim", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_pegf_fcast, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("Sugammadex", location = ph_location_type("title")) %>%
@@ -421,3 +484,10 @@ read_pptx() %>%
             ".pptx"
         )
     )
+
+# read_pptx() %>%
+#     add_slide(layout = slide_layout, master = slide_master) %>%
+#     ph_with("Albumin", location = ph_location_type("title")) %>%
+#     ph_with_vg(ggobj = g_stacked, type = "body") %>%
+#     print(target = "figs/stacked_fy.pptx")
+
