@@ -170,7 +170,7 @@ df_apap <- data_apap_events %>%
     filter(
         facility_event %in% campus,
         # clinical_event_datetime >= mdy("4/1/2017"),
-        clinical_event_datetime <= month_end + months(1)
+        clinical_event_datetime <= month_end %m+% months(1)
     ) %>%
     make_df()
     
