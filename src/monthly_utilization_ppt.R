@@ -273,6 +273,42 @@ fcast_calctn <- make_forecast(ts_calctn)
 g_calctn <- plot_utilization(df_calctn)
 g_calctn_fcast <- plot_forecast(fcast_calctn)
 
+# eculizumab -------------------------------------------
+
+dir_data <- "data/tidy/eculizumab"
+data_eculizumab_events <- get_data(dir_data, "eculizumab_events")
+# data_eculizumab_orders <- get_data(dir_data, "eculizumab_orders")
+
+df_eculiz <- data_eculizumab_events %>%
+    mutate(
+        visit_type = if_else(
+            encounter_type %in% c("Inpatient", "Observation"),
+            "Inpatient",
+            "Outpatient"
+        )
+    ) %>%
+    make_df(visit_type)
+
+g_eculiz_out <- df_eculiz %>%
+    filter(visit_type == "Outpatient") %>%
+    plot_utilization()
+
+g_eculiz_fcast_out <- df_eculiz %>%
+    filter(visit_type == "Outpatient") %>%
+    tk_ts() %>%
+    make_forecast() %>%
+    plot_forecast()
+
+g_eculiz_in <- df_eculiz %>%
+    filter(visit_type == "Inpatient") %>%
+    plot_utilization()
+
+g_eculiz_fcast_in <- df_eculiz %>%
+    filter(visit_type == "Inpatient") %>%
+    tk_ts() %>%
+    make_forecast() %>%
+    plot_forecast()
+
 # isoproterenol ----------------------------------------
 
 dir_data <- "data/tidy/isoproterenol"
@@ -323,22 +359,21 @@ df_pegf <- data_pegfilgrastim_events %>%
             "Outpatient"
         )
     ) %>%
-    # filter(!(encounter_type %in% c("Inpatient", "Observation"))) %>%
     make_df(visit_type)
 
-ts_pegf <- df_pegf %>%
-    filter(visit_type == "Outpatient") %>%
-    tk_ts()
-
-fcast_pegf <- make_forecast(ts_pegf)
-g_pegf <- df_pegf %>%
+g_pegf_out <- df_pegf %>%
     filter(visit_type == "Outpatient") %>%
     plot_utilization()
-g_pegf_fcast <- plot_forecast(fcast_pegf)
 
-# g_pegf_inpt <- df_pegf %>%
-#     filter(visit_type == "Inpatient") %>%
-#     plot_utilization()
+g_pegf_fcast_out <- df_pegf %>%
+    filter(visit_type == "Outpatient") %>%
+    tk_ts() %>%
+    make_forecast() %>%
+    plot_forecast()
+
+g_pegf_in <- df_pegf %>%
+    filter(visit_type == "Inpatient") %>%
+    plot_utilization()
 
 # sugammadex -------------------------------------------
 
@@ -393,14 +428,20 @@ read_pptx() %>%
     ph_with("Calcitonin", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_calctn, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with("Eculizumab (Outpatient)", location = ph_location_type("title")) %>%
+    ph_with_vg(ggobj = g_eculiz_out, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with("Eculizumab (Inpatient)", location = ph_location_type("title")) %>%
+    ph_with_vg(ggobj = g_eculiz_in, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("Isoproterenol", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_isoprot, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("IVIG", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_ivig, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Outpatient Pegfilgrastim", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_pegf, type = "body") %>%
+    ph_with("Pegfilgrastim (Outpatient)", location = ph_location_type("title")) %>%
+    ph_with_vg(ggobj = g_pegf_out, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("Sugammadex", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_sug, type = "body") %>%
@@ -452,14 +493,20 @@ read_pptx() %>%
     ph_with("Calcitonin", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_calctn_fcast, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with("Eculizumab (Outpatient)", location = ph_location_type("title")) %>%
+    ph_with_vg(ggobj = g_eculiz_fcast_out, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with("Eculizumab (Inpatient)", location = ph_location_type("title")) %>%
+    ph_with_vg(ggobj = g_eculiz_fcast_in, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("Isoproterenol", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_isoprot_fcast, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("IVIG", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_ivig_fcast, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Outpatient Pegfilgrastim", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_pegf_fcast, type = "body") %>%
+    ph_with("Pegfilgrastim (Outpatient)", location = ph_location_type("title")) %>%
+    ph_with_vg(ggobj = g_pegf_fcast_out, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with("Sugammadex", location = ph_location_type("title")) %>%
     ph_with_vg(ggobj = g_sug_fcast, type = "body") %>%
