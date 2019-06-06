@@ -1,0 +1,141 @@
+---
+title: "Albumin Forecasting"
+author: "Brian Gulbis, PharmD, BCPS"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: 
+    html_document:
+        code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r data}
+library(tidyverse) 
+library(lubridate)
+library(themebg)
+library(forecast)
+library(timetk)
+library(sweep)
+library(prophet)
+library(keras)
+
+tz_locale <- locale(tz = "US/Central")
+
+fcst_days <- 365
+
+get_data <- function(path, pattern, col_types = NULL) {
+    f <- list.files(path, pattern, full.names = TRUE)
+    
+    n <- f %>% 
+        purrr::map_int(~ nrow(data.table::fread(.x, select = 1L))) 
+    
+    f[n > 0] %>%
+        purrr::map_df(
+            readr::read_csv,
+            locale = tz_locale,
+            col_types = col_types
+        ) %>%
+        rename_all(stringr::str_to_lower)
+}
+
+data_csv <- get_data("../data/tidy/albumin", "albumin_events") %>%
+    distinct() 
+
+```
+
+# ARIMA
+
+```{r arima}
+ts <- data_csv %>%
+    mutate(med_date = floor_date(clinical_event_datetime, unit = "day")) %>%
+    count(med_date) %>%
+    tk_ts()
+
+mod <- auto.arima(ts, stepwise = FALSE, approximation = FALSE)
+summary(mod)
+```
+
+```{r, fig.cap="Forecast for the next year using an ARIMA model"}
+fcast <- forecast(mod, fcst_days) %>%
+    sw_sweep(timetk_idx = TRUE) %>%
+    mutate_at("index", floor_date, unit = "day") 
+
+fcast %>%
+    ggplot(aes(x = index, y = n)) +
+    geom_ribbon(aes(ymin = lo.95, ymax = hi.95), fill = "grey85", alpha = 0.5) +
+    geom_ribbon(aes(ymin = lo.80, ymax = hi.80), fill = "grey75", alpha = 0.5) +
+    geom_line(aes(color = key)) +
+    scale_color_manual(NULL, values = c("black", "blue")) +
+    scale_x_datetime(NULL, date_breaks = "6 months", date_labels = "%b %Y") +
+    ylab("Number of Doses") +
+    theme_bg()
+```
+
+# Prophet
+
+```{r}
+df <- data_csv %>%
+    mutate(ds = floor_date(clinical_event_datetime, unit = "day")) %>%
+    count(ds) %>%
+    rename(y = n)
+
+df$cap <- max(df$y) * 1.2
+df$floor <- min(df$y) * 0.8
+
+m <- prophet(df, growth = "linear")
+future <- make_future_dataframe(m, periods = fcst_days)
+future$cap <- max(df$y) * 1.2
+future$floor <- min(df$y) * 0.8
+forecast <- predict(m, future)
+```
+
+```{r fig.cap="Forecast for for the next year using Prophet"}
+dyplot.prophet(m, forecast)
+```
+
+```{r, fig.cap="Prophet forecast components", eval=FALSE}
+prophet_plot_components(m, forecast)
+```
+
+```{r, fig.cap="Cross validation metrics", eval=FALSE}
+df_cv <- cross_validation(m, initial = fcst_days, horizon = fcst_days * 0.5, units = "days")
+# performance_metrics(df_cv)
+plot_cross_validation_metric(df_cv, metric = "rmse")
+```
+
+# Keras
+
+```{r}
+n_inputs <- 60
+n_features <- 1
+
+df <- data_csv %>%
+    mutate(med_date = floor_date(clinical_event_datetime, unit = "day")) %>%
+    count(med_date) 
+
+gen_ts <- timeseries_generator(df$med_date, df$n, length = n_inputs, batch_size = 32)
+n_nodes <- as.integer(nrow(df) / (2 * (n_inputs + n_features)))
+```
+
+```{r}
+mod_k <- keras_model_sequential() 
+
+mod_k %>%
+    layer_dense(units = n_nodes, activation = "relu", input_shape = n_inputs) %>%
+    layer_dense(units = n_nodes, activation = "relu") %>%
+    layer_dense(units = 1) 
+
+summary(mod_k)
+
+mod_k %>%
+    compile(optimizer = optimizer_adam(), loss = "mse")
+    
+```
+
+```{r}
+fg <- fit_generator(mod_k, gen_ts, steps_per_epoch = 2, epochs = 10)
+```
+
+
