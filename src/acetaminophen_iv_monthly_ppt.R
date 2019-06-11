@@ -4,10 +4,10 @@ library(officer)
 library(themebg)
 library(ggrepel)
 library(rvg)
-library(mschart)
-library(forecast)
-library(timetk)
-library(sweep)
+# library(mschart)
+# library(forecast)
+# library(timetk)
+# library(sweep)
 
 tz_locale <- locale(tz = "US/Central")
 floor_unit <- "month"
@@ -15,7 +15,8 @@ floor_unit <- "month"
 data_month <- floor_date(rollback(now(), FALSE, FALSE), unit = "month")
 fy <- year(data_month %m+% months(6))
 
-col_pal <- c("#377eb8", "#4daf4a")
+# col_pal <- c("#377eb8", "#4daf4a", "#ff7f00", "#999999")
+col_pal <- "Dark2"
 
 campus <- c(
     "HC Childrens",
@@ -39,110 +40,6 @@ get_data <- function(path, pattern, col_types = NULL) {
             col_types = col_types
         ) %>%
         rename_all(stringr::str_to_lower)
-}
-
-make_df <- function(df, ...) {
-    cnt <- enquos(...)
-    
-    df %>%
-        mutate(
-            med_date = floor_date(clinical_event_datetime, unit = floor_unit),
-            fiscal_year = year(med_date %m+% months(6)),
-            month_plot = month(med_date, label = TRUE, abbr = TRUE)
-        ) %>%
-        count(fiscal_year, month_plot, med_date, !!!cnt) %>%
-        mutate_at("fiscal_year", as_factor) %>%
-        mutate_at(
-            "month_plot", 
-            factor, 
-            ordered = TRUE, 
-            levels = c(
-                "Jul", 
-                "Aug",
-                "Sep",
-                "Oct",
-                "Nov",
-                "Dec",
-                "Jan",
-                "Feb",
-                "Mar",
-                "Apr",
-                "May",
-                "Jun"
-            )
-        ) %>%
-        arrange(med_date)
-}
-
-make_forecast <- function(ts, h = 12) {
-    forecast::auto.arima(ts, lambda = 0) %>%
-        forecast::forecast(h) %>%
-        sweep::sw_sweep(timetk_idx = TRUE) %>%
-        dplyr::mutate_at(
-            "index",
-            lubridate::floor_date, 
-            unit = floor_unit
-        ) %>%
-        dplyr::mutate_at("key", stringr::str_to_title)
-}
-
-plot_utilization <- function(df) {
-    df %>%
-        ggplot(aes(x = month_plot, y = n, group = fiscal_year)) +
-        geom_line(
-            aes(color = fiscal_year, alpha = fiscal_year), 
-            size = 2
-        ) +
-        xlab(NULL) +
-        ylab("Monthly Doses") +
-        scale_color_manual(
-            "Fiscal Year", 
-            values = c("#377eb8", "#4daf4a", "black")
-        ) +
-        scale_alpha_manual(
-            "Fiscal Year", 
-            values = c(0.4, 0.4, 1)
-        ) +
-        expand_limits(y = 0) +
-        theme_bg() +
-        theme(
-            axis.text.x = element_text(vjust = 0.1),
-            legend.position = "bottom"
-        )
-}
-
-plot_forecast <- function(df) {
-    df %>%
-        ggplot(aes(x = index, y = n)) +
-        geom_ribbon(
-            aes(ymin = lo.95, ymax = hi.95), 
-            fill = "grey85",
-            alpha = 0.5
-        ) +
-        geom_ribbon(
-            aes(ymin = lo.80, ymax = hi.80),
-            fill = "grey75", 
-            alpha = 0.5
-        ) +
-        geom_line(aes(color = key, linetype = key), size = 2) +
-        scale_color_manual(NULL, values = c("black", "blue")) +
-        scale_linetype_manual(NULL, values = c("solid", "dashed")) +
-        scale_x_datetime(
-            NULL, 
-            breaks = seq(
-                mdy("1/1/2016", tz = "US/Central"), 
-                now() + years(1), 
-                by = "6 months"
-            ),
-            date_labels = "%b %Y"
-        ) +
-        ylab("Monthly Doses") +
-        expand_limits(y = 0) +
-        theme_bg() +
-        theme(
-            axis.text.x = element_text(vjust = 0.1),
-            legend.position = "bottom"
-        )
 }
 
 # acetaminophen ----------------------------------------
@@ -185,7 +82,25 @@ df_apap <- data_apap_events %>%
         fiscal_year = year(med_month %m+% months(6)),
         month_plot = month(med_month, label = TRUE, abbr = TRUE)
     ) 
-    
+
+df_apap_orders <- data_apap_orders %>%
+    filter(
+        order_datetime <= month_end,
+        facility_order %in% campus,
+        (verified_status != "Rejected" | is.na(verified_status))
+    ) %>%
+    mutate(
+        order_month = floor_date(order_datetime, unit = floor_unit),
+        fiscal_year = year(order_month %m+% months(6)),
+        month_plot = month(order_month, label = TRUE, abbr = TRUE),
+        freq_type = case_when(
+            prn ~ "PRN",
+            freq == "ONCE" ~ "Once",
+            is.na(freq) ~ "Unknown",
+            TRUE ~ "Scheduled"
+        )
+    ) 
+
 n_apap_doses <- df_apap %>%
     count(fiscal_year, month_plot, med_month, name = "doses") %>%
     mutate_at("fiscal_year", as_factor) %>%
@@ -213,11 +128,11 @@ df_apap_n <- n_apap_doses %>%
         )
     )
 
-ts_apap <- tk_ts(df_apap)
-
-fcast_apap <- make_forecast(ts_apap)
-g_apap <- plot_utilization(df_apap)
-g_apap_fcast <- plot_forecast(fcast_apap)
+# ts_apap <- tk_ts(df_apap)
+# 
+# fcast_apap <- make_forecast(ts_apap)
+# g_apap <- plot_utilization(df_apap)
+# g_apap_fcast <- plot_forecast(fcast_apap)
 
 # graphs -----------------------------------------------
 
@@ -229,11 +144,31 @@ g_utilization_fy <- df_apap_n %>%
     geom_line(size = 1) +
     geom_smooth(method = "lm", size = 0.5, linetype = "dashed", se = FALSE) +
     geom_text_repel(aes(label = label), nudge_y = -1) +
+    # ggtitle("Monthly utilization of IV acetaminophen") +
     scale_x_datetime(NULL, date_breaks = "1 month", date_labels = "%b %y") +
     ylab("Number") +
-    scale_color_manual(NULL, values = col_pal) +
+    scale_color_brewer(NULL, palette = col_pal) +
     theme_bg() +
     theme(legend.position = "None")
+
+g_utilization_fy_title <- df_apap_n %>%
+    filter(fiscal_year == fy) %>%
+    ggplot(aes(x = med_month, y = value, color = key)) +
+    geom_line(size = 1) +
+    geom_smooth(method = "lm", size = 0.5, linetype = "dashed", se = FALSE) +
+    geom_text_repel(aes(label = label), nudge_y = -1, color = "Grey35") +
+    ggtitle("Monthly utilization of IV acetaminophen") +
+    scale_x_datetime(NULL, date_breaks = "1 month", date_labels = "%b %y") +
+    ylab("Number") +
+    scale_color_brewer(NULL, palette = col_pal) +
+    theme_bg() +
+    theme(
+        legend.position = "None", 
+        axis.text.x = element_text(vjust = 0.1),
+        axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16),
+        plot.title = element_text(size = 20)
+    )
 
 g_utilization_all <- df_apap_n %>%
     ggplot(aes(x = med_month, y = value, color = key)) +
@@ -242,7 +177,7 @@ g_utilization_all <- df_apap_n %>%
     geom_text_repel(aes(label = label), nudge_y = -1) +
     scale_x_datetime(NULL, date_breaks = "3 months", date_labels = "%b %y") +
     ylab("Number") +
-    scale_color_manual(NULL, values = col_pal) +
+    scale_color_brewer(NULL, palette = col_pal) +
     theme_bg() +
     theme(legend.position = "None")
 
@@ -259,7 +194,7 @@ g_units <- df_apap %>%
     geom_col() +
     xlab(NULL) +
     ylab("Number of doses") +
-    scale_fill_manual(NULL, values = col_pal, labels = c("Scheduled", "PRN")) +
+    scale_fill_brewer(NULL, palette = col_pal, labels = c("Scheduled", "PRN")) +
     coord_flip() +
     theme_bg() 
 
@@ -295,6 +230,99 @@ g_po_trend <- df_apap %>%
     theme_bg() +
     theme(legend.position = "None")
 
+g_po_unit <- df_apap %>%
+    filter(
+        med_month == data_month,
+        po_med
+    ) %>%
+    count(nurse_unit, sort = TRUE) %>%
+    mutate_at("nurse_unit", fct_inorder) %>%
+    mutate_at("nurse_unit", fct_rev) %>%
+    filter(n >= 5) %>%
+    ggplot(aes(x = nurse_unit, y = n)) +
+    geom_col() +
+    xlab(NULL) +
+    ylab("Number of doses") +
+    coord_flip() +
+    theme_bg() 
+
+g_orders_unit <- df_apap_orders %>%
+    filter(order_month == data_month) %>%
+    add_count(nurse_unit_order, freq_type, name = "freq_type_n") %>%
+    add_count(nurse_unit_order, name = "orders") %>%
+    arrange(orders) %>%
+    mutate_at("nurse_unit_order", fct_inorder) %>%
+    # mutate_at("nurse_unit_order", fct_rev) %>%
+    distinct(nurse_unit_order, freq_type, freq_type_n, orders) %>%
+    filter(orders >= cutoff) %>%
+    ggplot(aes(x = nurse_unit_order, y = freq_type_n, fill = freq_type)) +
+    geom_col() +
+    xlab(NULL) +
+    ylab("Number of orders") +
+    scale_fill_brewer(NULL, palette = col_pal) +
+    coord_flip() +
+    theme_bg() 
+
+g_orders_service <- df_apap_orders %>%
+    filter(order_month == data_month) %>%
+    add_count(med_service_order, freq_type, name = "freq_type_n") %>%
+    add_count(med_service_order) %>%
+    arrange(n) %>%
+    mutate_at("med_service_order", fct_inorder) %>%
+    # mutate_at("nurse_unit_order", fct_rev) %>%
+    distinct(med_service_order, freq_type, freq_type_n, n) %>%
+    filter(n >= cutoff) %>%
+    ggplot(aes(x = med_service_order, y = freq_type_n, fill = freq_type)) +
+    geom_col() +
+    xlab(NULL) +
+    ylab("Number of orders") +
+    scale_fill_brewer(NULL, palette = col_pal) +
+    coord_flip() +
+    theme_bg() 
+
+g_orders_provider <- df_apap_orders %>%
+    mutate_at(
+        "provider_position", 
+        str_replace_all, 
+        pattern = " eOrder", 
+        replacement = ""
+    ) %>%
+    filter(order_month == data_month) %>%
+    add_count(provider_position, freq_type, name = "freq_type_n") %>%
+    add_count(provider_position) %>%
+    arrange(n) %>%
+    mutate_at("provider_position", fct_inorder) %>%
+    distinct(provider_position, freq_type, freq_type_n, n) %>%
+    filter(n >= cutoff) %>%
+    ggplot(aes(x = provider_position, y = freq_type_n, fill = freq_type)) +
+    geom_col() +
+    xlab(NULL) +
+    ylab("Number of orders") +
+    scale_fill_brewer(NULL, palette = col_pal) +
+    coord_flip() +
+    theme_bg() 
+
+g_orders_fy <- df_apap_orders %>%
+    count(fiscal_year, month_plot, order_month, freq_type) %>%
+    filter(fiscal_year == fy) %>%
+    arrange(order_month) %>%
+    group_by(freq_type) %>%
+    mutate(
+        label = if_else(
+            order_month == last(order_month),
+            freq_type,
+            NA_character_
+        )
+    ) %>%
+    ggplot(aes(x = order_month, y = n, color = freq_type)) +
+    geom_line(size = 1) +
+    geom_text_repel(aes(label = label), nudge_y = -1) +
+    scale_x_datetime(NULL, date_breaks = "1 month", date_labels = "%b %y") +
+    ylab("Number") +
+    scale_color_brewer(NULL, palette = col_pal) +
+    theme_bg() +
+    theme(legend.position = "None")
+
 
 # powerpoint -------------------------------------------
 
@@ -302,140 +330,86 @@ slide_layout <- "Title and Content"
 slide_master <- "Office Theme"
 title_size <- fp_text(font.size = 32)
 
+layout_summary(read_pptx())
 # layout_properties(read_pptx(), layout = "Title Slide", master = slide_master)
+# layout_properties(read_pptx(), layout = slide_layout, master = slide_master)
+layout_properties(read_pptx(), layout = "Blank", master = slide_master)
+
+cur_month <- format(data_month, "%B %Y")
 
 read_pptx() %>%
     add_slide(layout = "Title Slide", master = slide_master) %>%
-    ph_with_text(type = "ctrTitle", str = "Utilization of Target Medications") %>%
+    ph_with_text(type = "ctrTitle", str = "Utilization of Acetaminophen IV") %>%
     ph_with_text(
         type = "subTitle", 
         str = paste0(
             "Data through: ", 
-            format(month_end, "%B %Y"),
+            cur_month,
             "\nBrian Gulbis, PharmD, BCPS"
         )
     ) %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("IV Acetaminophen", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_apap, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Albumin", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_albumin, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Bupivacaine Liposome", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_bupiv, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Calcitonin", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_calctn, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Eculizumab (Outpatient)", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_eculiz_out, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Eculizumab (Inpatient)", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_eculiz_in, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Isoproterenol", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_isoprot, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("IVIG", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_ivig, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Pegfilgrastim (Outpatient)", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_pegf_out, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Sugammadex", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_sug, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Ceftaroline", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_ceftar, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Ceftazidime-Avibactam", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_avycaz, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Ceftolozane-Tazobactam", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_zerbaxa, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Daptomycin", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_dapto, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Ertapenem", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_ertap, type = "body") %>%
-    print(
-        target = paste0(
-            "figs/target_med_utilization_",
-            format(month_end, "%Y-%m"),
-            ".pptx"
-        )
-    )
-
-read_pptx() %>%
-    add_slide(layout = "Title Slide", master = slide_master) %>%
-    ph_with_text(type = "ctrTitle", str = "Forecast for Target Medications") %>%
-    ph_with_text(
-        type = "subTitle", 
-        str = paste0(
-            format(month_end + months(1), "%B %Y"),
-            " to ",
-            format(month_end + months(12), "%B %Y"),
-            "\nBrian Gulbis, PharmD, BCPS"
-        )
+    ph_with(
+        "Monthly utilization of IV acetaminophen", 
+        location = ph_location_type("title")
     ) %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("IV Acetaminophen", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_apap_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Albumin", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_albumin_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Bupivacaine Liposome", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_bupiv_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Calcitonin", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_calctn_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Eculizumab (Outpatient)", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_eculiz_fcast_out, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Eculizumab (Inpatient)", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_eculiz_fcast_in, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Isoproterenol", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_isoprot_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("IVIG", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_ivig_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Pegfilgrastim (Outpatient)", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_pegf_fcast_out, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Sugammadex", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_sug_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Ceftaroline", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_ceftar_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Ceftazidime-Avibactam", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_avycaz_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Ceftolozane-Tazobactam", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_zerbaxa_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Daptomycin", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_dapto_fcast, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Ertapenem", location = ph_location_type("title")) %>%
-    ph_with_vg(ggobj = g_ertap_fcast, type = "body") %>%
+    ph_with_vg(ggobj = g_utilization_fy, type = "body") %>%
+
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(ggobj = g_utilization_fy_title, left = 0.5, top = 0.5, width = 9, height = 6.5) %>%
+    
+    # add_slide(layout = slide_layout, master = slide_master) %>%
+    # ph_with(
+    #     "Monthly orders for IV acetaminophen", 
+    #     location = ph_location_type("title")
+    # ) %>%
+    # ph_with_vg(ggobj = g_orders_fy, type = "body") %>%
+    # add_slide(layout = slide_layout, master = slide_master) %>%
+    # ph_with(
+    #     paste("Doses by nursing unit in", cur_month), 
+    #     location = ph_location_type("title")
+    # ) %>%
+    # ph_with_vg(ggobj = g_units, type = "body") %>%
+    # add_slide(layout = slide_layout, master = slide_master) %>%
+    # ph_with(
+    #     paste("Median doses per patient by nursing unit in", cur_month), 
+    #     location = ph_location_type("title")
+    # ) %>%
+    # ph_with_vg(ggobj = g_median, type = "body") %>%
+    # add_slide(layout = slide_layout, master = slide_master) %>%
+    # ph_with(
+    #     "Acetaminophen IV doses given within 2 hours of oral medications", 
+    #     location = ph_location_type("title")
+    # ) %>%
+    # ph_with_vg(ggobj = g_po_trend, type = "body") %>%
+    # add_slide(layout = slide_layout, master = slide_master) %>%
+    # ph_with(
+    #     paste("IV doses given within 2 hours of oral medications by nursing unit in", cur_month), 
+    #     location = ph_location_type("title")
+    # ) %>%
+    # ph_with_vg(ggobj = g_po_unit, type = "body") %>%
+    # add_slide(layout = slide_layout, master = slide_master) %>%
+    # ph_with(
+    #     paste("Orders by nursing unit in", cur_month), 
+    #     location = ph_location_type("title")
+    # ) %>%
+    # ph_with_vg(ggobj = g_orders_unit, type = "body") %>%
+    # add_slide(layout = slide_layout, master = slide_master) %>%
+    # ph_with(
+    #     paste("Orders by primary service in", cur_month), 
+    #     location = ph_location_type("title")
+    # ) %>%
+    # ph_with_vg(ggobj = g_orders_service, type = "body") %>%
+    # add_slide(layout = slide_layout, master = slide_master) %>%
+    # ph_with(
+    #     paste("Orders by provider role in", cur_month), 
+    #     location = ph_location_type("title")
+    # ) %>%
+    # ph_with_vg(ggobj = g_orders_provider, type = "body") %>%
     print(
         target = paste0(
-            "figs/target_med_forecast_",
-            format(month_end, "%Y-%m"),
+            "report/ppt/apap_iv_utilization_",
+            format(data_month, "%Y-%m"),
             ".pptx"
         )
     )
-
-# read_pptx() %>%
-#     add_slide(layout = slide_layout, master = slide_master) %>%
-#     ph_with("Albumin", location = ph_location_type("title")) %>%
-#     ph_with_vg(ggobj = g_stacked, type = "body") %>%
-#     print(target = "figs/stacked_fy.pptx")
-
