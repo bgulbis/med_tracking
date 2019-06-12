@@ -153,7 +153,9 @@ df_apap_n <- n_apap_doses %>%
 # graphs -----------------------------------------------
 
 cutoff <- 15L
+text_col <- "Grey35"
 family <- "Calibri"
+cur_month <- format(data_month, "%B %Y")
 
 g_utilization_fy <- df_apap_n %>%
     filter(fiscal_year == fy) %>%
@@ -163,8 +165,8 @@ g_utilization_fy <- df_apap_n %>%
     geom_text_repel(
         aes(label = label), 
         nudge_y = -1, 
-        color = "Grey35", 
-        family = "Calibri"
+        color = text_col, 
+        family = family
     ) +
     ggtitle("Monthly utilization of IV acetaminophen") +
     scale_x_datetime(
@@ -176,26 +178,50 @@ g_utilization_fy <- df_apap_n %>%
     # scale_color_brewer(NULL, palette = col_pal) +
     scale_color_manual(NULL, values = col_pal) +
     expand_limits(y = 0) +
-    theme_bg() +
-    theme(
-        legend.position = "None", 
-        axis.text.x = element_text(vjust = 0.1),
-        axis.title.x = element_text(vjust = 0.5),
-        axis.text = element_text(family = family, size = 14),
-        axis.title = element_text(family = family, size = 16),
-        plot.title = element_text(family = family, size = 22, hjust = 0.5)
-    )
+    theme_bg_ppt() +
+    theme(legend.position = "None")
 
-g_utilization_all <- df_apap_n %>%
-    ggplot(aes(x = med_month, y = value, color = key)) +
+g_orders_fy <- df_apap_orders %>%
+    count(fiscal_year, month_plot, order_month, freq_type) %>%
+    filter(fiscal_year == fy) %>%
+    arrange(order_month) %>%
+    group_by(freq_type) %>%
+    mutate(
+        label = if_else(
+            order_month == last(order_month),
+            freq_type,
+            NA_character_
+        )
+    ) %>%
+    ggplot(aes(x = order_month, y = n, color = freq_type)) +
     geom_line(size = 1) +
-    geom_smooth(method = "lm", size = 0.5, linetype = "dashed", se = FALSE) +
-    geom_text_repel(aes(label = label), nudge_y = -1) +
-    scale_x_datetime(NULL, date_breaks = "3 months", date_labels = "%b %y") +
+    geom_text_repel(
+        aes(label = label), 
+        nudge_y = -1, 
+        color = text_col, 
+        family = family
+    ) +
+    ggtitle("Monthly orders for IV acetaminophen") +
+    scale_x_datetime(
+        paste("Fiscal Year", fy), 
+        date_breaks = "1 month", 
+        date_labels = "%b"
+    ) +
     ylab("Number") +
     scale_color_manual(NULL, values = col_pal) +
-    theme_bg() +
+    theme_bg_ppt() +
     theme(legend.position = "None")
+
+# g_utilization_all <- df_apap_n %>%
+#     ggplot(aes(x = med_month, y = value, color = key)) +
+#     geom_line(size = 1) +
+#     geom_smooth(method = "lm", size = 0.5, linetype = "dashed", se = FALSE) +
+#     geom_text_repel(aes(label = label), nudge_y = -1) +
+#     scale_x_datetime(NULL, date_breaks = "3 months", date_labels = "%b %y") +
+#     ylab("Number") +
+#     scale_color_manual(NULL, values = col_pal) +
+#     theme_bg() +
+#     theme(legend.position = "None")
 
 g_units <- df_apap %>%
     filter(med_month == data_month) %>%
@@ -208,11 +234,13 @@ g_units <- df_apap %>%
     filter(doses >= cutoff) %>%
     ggplot(aes(x = nurse_unit, y = dose_type, fill = prn_dose)) +
     geom_col() +
+    ggtitle(paste("Doses by nursing unit in", cur_month)) +
     xlab(NULL) +
     ylab("Number of doses") +
     scale_fill_manual(NULL, values = col_pal, labels = c("Scheduled", "PRN")) +
     coord_flip() +
-    theme_bg() 
+    theme_bg_ppt() +
+    theme(legend.position = "top")
 
 g_median <- df_apap %>%
     filter(med_month == data_month) %>%
@@ -319,36 +347,6 @@ g_orders_provider <- df_apap_orders %>%
     coord_flip() +
     theme_bg() 
 
-g_orders_fy <- df_apap_orders %>%
-    count(fiscal_year, month_plot, order_month, freq_type) %>%
-    filter(fiscal_year == fy) %>%
-    arrange(order_month) %>%
-    group_by(freq_type) %>%
-    mutate(
-        label = if_else(
-            order_month == last(order_month),
-            freq_type,
-            NA_character_
-        )
-    ) %>%
-    ggplot(aes(x = order_month, y = n, color = freq_type)) +
-    geom_line(size = 1) +
-    geom_text_repel(
-        aes(label = label), 
-        nudge_y = -1, 
-        color = "Grey35", 
-        family = "Calibri"
-    ) +
-    ggtitle("Monthly utilization of IV acetaminophen") +
-    scale_x_datetime(
-        paste("Fiscal Year", fy), 
-        date_breaks = "1 month", 
-        date_labels = "%b"
-    ) +
-    ylab("Number") +
-    scale_color_manual(NULL, values = col_pal) +
-    theme_bg() +
-    theme(legend.position = "None")
 
 
 # powerpoint -------------------------------------------
@@ -386,19 +384,23 @@ read_pptx() %>%
         width = w, 
         height = h
     ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_orders_fy, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_units, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
     
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with(
-        "Monthly orders for IV acetaminophen",
-        location = ph_location_type("title")
-    ) %>%
-    ph_with_vg(ggobj = g_orders_fy, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with(
-        paste("Doses by nursing unit in", cur_month),
-        location = ph_location_type("title")
-    ) %>%
-    ph_with_vg(ggobj = g_units, type = "body") %>%
     add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with(
         paste("Median doses per patient by nursing unit in", cur_month),
