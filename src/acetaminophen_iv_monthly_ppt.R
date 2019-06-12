@@ -16,7 +16,23 @@ data_month <- floor_date(rollback(now(), FALSE, FALSE), unit = "month")
 fy <- year(data_month %m+% months(6))
 
 # col_pal <- c("#377eb8", "#4daf4a", "#ff7f00", "#999999")
-col_pal <- "Dark2"
+
+col_pal <- c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2")
+# col_pal <- c(
+#     rgb(77, 77, 77, maxColorValue = 255),
+#     rgb(93, 165, 218, maxColorValue = 255),
+#     rgb(250, 164, 58, maxColorValue = 255),
+#     rgb(96, 189, 104, maxColorValue = 255)
+# )
+
+# col_pal <- c(
+#     rgb(255, 86, 87, maxColorValue = 255),
+#     rgb(55, 108, 138, maxColorValue = 255),
+#     rgb(242, 217, 187, maxColorValue = 255),
+#     rgb(99, 143, 169, maxColorValue = 255)
+# )
+
+# col_pal <- "Dark2"
 
 campus <- c(
     "HC Childrens",
@@ -137,37 +153,37 @@ df_apap_n <- n_apap_doses %>%
 # graphs -----------------------------------------------
 
 cutoff <- 15L
+family <- "Calibri"
 
 g_utilization_fy <- df_apap_n %>%
     filter(fiscal_year == fy) %>%
     ggplot(aes(x = med_month, y = value, color = key)) +
     geom_line(size = 1) +
     geom_smooth(method = "lm", size = 0.5, linetype = "dashed", se = FALSE) +
-    geom_text_repel(aes(label = label), nudge_y = -1) +
-    # ggtitle("Monthly utilization of IV acetaminophen") +
-    scale_x_datetime(NULL, date_breaks = "1 month", date_labels = "%b %y") +
-    ylab("Number") +
-    scale_color_brewer(NULL, palette = col_pal) +
-    theme_bg() +
-    theme(legend.position = "None")
-
-g_utilization_fy_title <- df_apap_n %>%
-    filter(fiscal_year == fy) %>%
-    ggplot(aes(x = med_month, y = value, color = key)) +
-    geom_line(size = 1) +
-    geom_smooth(method = "lm", size = 0.5, linetype = "dashed", se = FALSE) +
-    geom_text_repel(aes(label = label), nudge_y = -1, color = "Grey35") +
+    geom_text_repel(
+        aes(label = label), 
+        nudge_y = -1, 
+        color = "Grey35", 
+        family = "Calibri"
+    ) +
     ggtitle("Monthly utilization of IV acetaminophen") +
-    scale_x_datetime(NULL, date_breaks = "1 month", date_labels = "%b %y") +
+    scale_x_datetime(
+        paste("Fiscal Year", fy), 
+        date_breaks = "1 month", 
+        date_labels = "%b"
+    ) +
     ylab("Number") +
-    scale_color_brewer(NULL, palette = col_pal) +
+    # scale_color_brewer(NULL, palette = col_pal) +
+    scale_color_manual(NULL, values = col_pal) +
+    expand_limits(y = 0) +
     theme_bg() +
     theme(
         legend.position = "None", 
         axis.text.x = element_text(vjust = 0.1),
-        axis.text = element_text(size = 14),
-        axis.title = element_text(size = 16),
-        plot.title = element_text(size = 20)
+        axis.title.x = element_text(vjust = 0.5),
+        axis.text = element_text(family = family, size = 14),
+        axis.title = element_text(family = family, size = 16),
+        plot.title = element_text(family = family, size = 22, hjust = 0.5)
     )
 
 g_utilization_all <- df_apap_n %>%
@@ -177,7 +193,7 @@ g_utilization_all <- df_apap_n %>%
     geom_text_repel(aes(label = label), nudge_y = -1) +
     scale_x_datetime(NULL, date_breaks = "3 months", date_labels = "%b %y") +
     ylab("Number") +
-    scale_color_brewer(NULL, palette = col_pal) +
+    scale_color_manual(NULL, values = col_pal) +
     theme_bg() +
     theme(legend.position = "None")
 
@@ -194,7 +210,7 @@ g_units <- df_apap %>%
     geom_col() +
     xlab(NULL) +
     ylab("Number of doses") +
-    scale_fill_brewer(NULL, palette = col_pal, labels = c("Scheduled", "PRN")) +
+    scale_fill_manual(NULL, values = col_pal, labels = c("Scheduled", "PRN")) +
     coord_flip() +
     theme_bg() 
 
@@ -259,7 +275,8 @@ g_orders_unit <- df_apap_orders %>%
     geom_col() +
     xlab(NULL) +
     ylab("Number of orders") +
-    scale_fill_brewer(NULL, palette = col_pal) +
+    # scale_fill_brewer(NULL, palette = "Paired") +
+    scale_fill_manual(NULL, values = col_pal) +
     coord_flip() +
     theme_bg() 
 
@@ -276,7 +293,7 @@ g_orders_service <- df_apap_orders %>%
     geom_col() +
     xlab(NULL) +
     ylab("Number of orders") +
-    scale_fill_brewer(NULL, palette = col_pal) +
+    scale_fill_manual(NULL, values = col_pal) +
     coord_flip() +
     theme_bg() 
 
@@ -298,7 +315,7 @@ g_orders_provider <- df_apap_orders %>%
     geom_col() +
     xlab(NULL) +
     ylab("Number of orders") +
-    scale_fill_brewer(NULL, palette = col_pal) +
+    scale_fill_manual(NULL, values = col_pal) +
     coord_flip() +
     theme_bg() 
 
@@ -316,10 +333,20 @@ g_orders_fy <- df_apap_orders %>%
     ) %>%
     ggplot(aes(x = order_month, y = n, color = freq_type)) +
     geom_line(size = 1) +
-    geom_text_repel(aes(label = label), nudge_y = -1) +
-    scale_x_datetime(NULL, date_breaks = "1 month", date_labels = "%b %y") +
+    geom_text_repel(
+        aes(label = label), 
+        nudge_y = -1, 
+        color = "Grey35", 
+        family = "Calibri"
+    ) +
+    ggtitle("Monthly utilization of IV acetaminophen") +
+    scale_x_datetime(
+        paste("Fiscal Year", fy), 
+        date_breaks = "1 month", 
+        date_labels = "%b"
+    ) +
     ylab("Number") +
-    scale_color_brewer(NULL, palette = col_pal) +
+    scale_color_manual(NULL, values = col_pal) +
     theme_bg() +
     theme(legend.position = "None")
 
@@ -330,12 +357,15 @@ slide_layout <- "Title and Content"
 slide_master <- "Office Theme"
 title_size <- fp_text(font.size = 32)
 
-layout_summary(read_pptx())
+# layout_summary(read_pptx())
 # layout_properties(read_pptx(), layout = "Title Slide", master = slide_master)
 # layout_properties(read_pptx(), layout = slide_layout, master = slide_master)
-layout_properties(read_pptx(), layout = "Blank", master = slide_master)
+# layout_properties(read_pptx(), layout = "Blank", master = slide_master)
 
 cur_month <- format(data_month, "%B %Y")
+l <- 0.5
+w <- 9
+h <- 6.5
 
 read_pptx() %>%
     add_slide(layout = "Title Slide", master = slide_master) %>%
@@ -348,64 +378,63 @@ read_pptx() %>%
             "\nBrian Gulbis, PharmD, BCPS"
         )
     ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_utilization_fy, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    
     add_slide(layout = slide_layout, master = slide_master) %>%
     ph_with(
-        "Monthly utilization of IV acetaminophen", 
+        "Monthly orders for IV acetaminophen",
         location = ph_location_type("title")
     ) %>%
-    ph_with_vg(ggobj = g_utilization_fy, type = "body") %>%
-
-    add_slide(layout = "Blank", master = slide_master) %>%
-    ph_with_vg_at(ggobj = g_utilization_fy_title, left = 0.5, top = 0.5, width = 9, height = 6.5) %>%
-    
-    # add_slide(layout = slide_layout, master = slide_master) %>%
-    # ph_with(
-    #     "Monthly orders for IV acetaminophen", 
-    #     location = ph_location_type("title")
-    # ) %>%
-    # ph_with_vg(ggobj = g_orders_fy, type = "body") %>%
-    # add_slide(layout = slide_layout, master = slide_master) %>%
-    # ph_with(
-    #     paste("Doses by nursing unit in", cur_month), 
-    #     location = ph_location_type("title")
-    # ) %>%
-    # ph_with_vg(ggobj = g_units, type = "body") %>%
-    # add_slide(layout = slide_layout, master = slide_master) %>%
-    # ph_with(
-    #     paste("Median doses per patient by nursing unit in", cur_month), 
-    #     location = ph_location_type("title")
-    # ) %>%
-    # ph_with_vg(ggobj = g_median, type = "body") %>%
-    # add_slide(layout = slide_layout, master = slide_master) %>%
-    # ph_with(
-    #     "Acetaminophen IV doses given within 2 hours of oral medications", 
-    #     location = ph_location_type("title")
-    # ) %>%
-    # ph_with_vg(ggobj = g_po_trend, type = "body") %>%
-    # add_slide(layout = slide_layout, master = slide_master) %>%
-    # ph_with(
-    #     paste("IV doses given within 2 hours of oral medications by nursing unit in", cur_month), 
-    #     location = ph_location_type("title")
-    # ) %>%
-    # ph_with_vg(ggobj = g_po_unit, type = "body") %>%
-    # add_slide(layout = slide_layout, master = slide_master) %>%
-    # ph_with(
-    #     paste("Orders by nursing unit in", cur_month), 
-    #     location = ph_location_type("title")
-    # ) %>%
-    # ph_with_vg(ggobj = g_orders_unit, type = "body") %>%
-    # add_slide(layout = slide_layout, master = slide_master) %>%
-    # ph_with(
-    #     paste("Orders by primary service in", cur_month), 
-    #     location = ph_location_type("title")
-    # ) %>%
-    # ph_with_vg(ggobj = g_orders_service, type = "body") %>%
-    # add_slide(layout = slide_layout, master = slide_master) %>%
-    # ph_with(
-    #     paste("Orders by provider role in", cur_month), 
-    #     location = ph_location_type("title")
-    # ) %>%
-    # ph_with_vg(ggobj = g_orders_provider, type = "body") %>%
+    ph_with_vg(ggobj = g_orders_fy, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with(
+        paste("Doses by nursing unit in", cur_month),
+        location = ph_location_type("title")
+    ) %>%
+    ph_with_vg(ggobj = g_units, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with(
+        paste("Median doses per patient by nursing unit in", cur_month),
+        location = ph_location_type("title")
+    ) %>%
+    ph_with_vg(ggobj = g_median, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with(
+        "Acetaminophen IV doses given within 2 hours of oral medications",
+        location = ph_location_type("title")
+    ) %>%
+    ph_with_vg(ggobj = g_po_trend, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with(
+        paste("IV doses given within 2 hours of oral medications by nursing unit in", cur_month),
+        location = ph_location_type("title")
+    ) %>%
+    ph_with_vg(ggobj = g_po_unit, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with(
+        paste("Orders by nursing unit in", cur_month),
+        location = ph_location_type("title")
+    ) %>%
+    ph_with_vg(ggobj = g_orders_unit, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with(
+        paste("Orders by primary service in", cur_month),
+        location = ph_location_type("title")
+    ) %>%
+    ph_with_vg(ggobj = g_orders_service, type = "body") %>%
+    add_slide(layout = slide_layout, master = slide_master) %>%
+    ph_with(
+        paste("Orders by provider role in", cur_month),
+        location = ph_location_type("title")
+    ) %>%
+    ph_with_vg(ggobj = g_orders_provider, type = "body") %>%
     print(
         target = paste0(
             "report/ppt/apap_iv_utilization_",
