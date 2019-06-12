@@ -9,30 +9,35 @@ library(rvg)
 # library(timetk)
 # library(sweep)
 
+# constants --------------------------------------------
+
 tz_locale <- locale(tz = "US/Central")
 floor_unit <- "month"
 
 data_month <- floor_date(rollback(now(), FALSE, FALSE), unit = "month")
 fy <- year(data_month %m+% months(6))
+cur_month <- format(data_month, "%B %Y")
 
-# col_pal <- c("#377eb8", "#4daf4a", "#ff7f00", "#999999")
+fy_months <- c(
+    "Jul", 
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun"
+)
 
 col_pal <- c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2")
-# col_pal <- c(
-#     rgb(77, 77, 77, maxColorValue = 255),
-#     rgb(93, 165, 218, maxColorValue = 255),
-#     rgb(250, 164, 58, maxColorValue = 255),
-#     rgb(96, 189, 104, maxColorValue = 255)
-# )
+text_col <- "Grey35"
+family <- "Calibri"
 
-# col_pal <- c(
-#     rgb(255, 86, 87, maxColorValue = 255),
-#     rgb(55, 108, 138, maxColorValue = 255),
-#     rgb(242, 217, 187, maxColorValue = 255),
-#     rgb(99, 143, 169, maxColorValue = 255)
-# )
-
-# col_pal <- "Dark2"
+cutoff <- 15L
 
 campus <- c(
     "HC Childrens",
@@ -58,52 +63,69 @@ get_data <- function(path, pattern, col_types = NULL) {
         rename_all(stringr::str_to_lower)
 }
 
+gr_count_orders <- function(df, x, title, cutoff = 15) {
+    x <- enquo(x)
+    
+    df %>%
+        filter(order_month == data_month) %>%
+        add_count(!!x, freq_type, name = "freq_type_n") %>%
+        add_count(!!x, name = "orders") %>%
+        arrange(orders) %>%
+        mutate_at(dplyr::vars(!!x), fct_inorder) %>%
+        distinct(!!x, freq_type, freq_type_n, orders) %>%
+        filter(orders >= cutoff) %>%
+        ggplot(aes(x = !!x, y = freq_type_n, fill = freq_type)) +
+        geom_col() +
+        ggtitle(title) +
+        xlab(NULL) +
+        ylab("Number of orders") +
+        scale_fill_manual(NULL, values = col_pal) +
+        coord_flip() +
+        theme_bg_ppt() +
+        theme(legend.position = "top")
+}
+
 # acetaminophen ----------------------------------------
 
 dir_data <- "data/tidy/acetaminophen"
 
-fy_months <- c(
-    "Jul", 
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun"
-)
-
 data_apap_events <- get_data(dir_data, "apap_events") %>%
-    distinct() 
-
-data_apap_orders <- get_data(dir_data, "apap_orders")
-
-month_end <- floor_date(
-    max(data_apap_events$clinical_event_datetime), 
-    unit = "month"
-)
-
-df_apap <- data_apap_events %>%
-    filter(
-        clinical_event_datetime <= month_end,
-        facility_event %in% campus,
-        (is.na(admin_event) | admin_event == "Administered")
-    ) %>%
+    distinct() %>%
     mutate(
         med_month = floor_date(clinical_event_datetime, unit = floor_unit),
         fiscal_year = year(med_month %m+% months(6)),
         month_plot = month(med_month, label = TRUE, abbr = TRUE)
+    ) %>%
+    filter(
+        med_month <= data_month,
+        facility_event %in% campus,
+        (is.na(admin_event) | admin_event == "Administered")
     ) 
 
-df_apap_orders <- data_apap_orders %>%
-    filter(
-        order_datetime <= month_end,
-        facility_order %in% campus,
-        (verified_status != "Rejected" | is.na(verified_status))
+data_apap_orders <- get_data(dir_data, "apap_orders") %>%
+    mutate_at(
+        "med_service_order",
+        str_replace_all,
+        pattern = " Service",
+        replacement = ""
+    ) %>%
+    mutate_at(
+        "med_service_order",
+        str_replace_all,
+        pattern = "Respiratory Therapy",
+        replacement = "Resp Ther"
+    ) %>%
+    mutate_at(
+        "provider_position", 
+        str_replace_all, 
+        pattern = " eOrder", 
+        replacement = ""
+    ) %>%
+    mutate_at(
+        "provider_position", 
+        str_replace_all, 
+        pattern = "Fellow/Resident", 
+        replacement = "Fel/Res"
     ) %>%
     mutate(
         order_month = floor_date(order_datetime, unit = floor_unit),
@@ -115,24 +137,39 @@ df_apap_orders <- data_apap_orders %>%
             is.na(freq) ~ "Unknown",
             TRUE ~ "Scheduled"
         )
+    ) %>%
+    filter(
+        order_month <= data_month,
+        facility_order %in% campus,
+        (verified_status != "Rejected" | is.na(verified_status))
     ) 
 
-n_apap_doses <- df_apap %>%
-    count(fiscal_year, month_plot, med_month, name = "doses") %>%
-    mutate_at("fiscal_year", as_factor) %>%
-    mutate_at(
-        "month_plot", 
-        factor, 
-        ordered = TRUE, 
-        levels = fy_months
-    ) %>%
-    arrange(med_month)
+# n_apap_doses <- data_apap_events %>%
+#     count(fiscal_year, month_plot, med_month, name = "doses") %>%
+#     mutate_at("fiscal_year", as_factor) %>%
+#     mutate_at(
+#         "month_plot", 
+#         factor, 
+#         ordered = TRUE, 
+#         levels = fy_months
+#     ) %>%
+#     arrange(med_month)
 
-n_apap_pts <- df_apap %>%
+# ts_apap <- tk_ts(data_apap_events)
+# 
+# fcast_apap <- make_forecast(ts_apap)
+# g_apap <- plot_utilization(data_apap_events)
+# g_apap_fcast <- plot_forecast(fcast_apap)
+
+# graphs -----------------------------------------------
+
+n_apap_pts <- data_apap_events %>%
     distinct(encounter_id, med_month) %>%
     count(med_month, name = "patients") 
 
-df_apap_n <- n_apap_doses %>%
+g_utilization_fy <- data_apap_events %>%
+    filter(fiscal_year == fy) %>%
+    count(med_month, name = "doses") %>%
     left_join(n_apap_pts, by = "med_month") %>%
     gather("key", "value", doses, patients) %>%
     group_by(key) %>%
@@ -142,23 +179,7 @@ df_apap_n <- n_apap_doses %>%
             str_to_sentence(key),
             NA_character_
         )
-    )
-
-# ts_apap <- tk_ts(df_apap)
-# 
-# fcast_apap <- make_forecast(ts_apap)
-# g_apap <- plot_utilization(df_apap)
-# g_apap_fcast <- plot_forecast(fcast_apap)
-
-# graphs -----------------------------------------------
-
-cutoff <- 15L
-text_col <- "Grey35"
-family <- "Calibri"
-cur_month <- format(data_month, "%B %Y")
-
-g_utilization_fy <- df_apap_n %>%
-    filter(fiscal_year == fy) %>%
+    ) %>%
     ggplot(aes(x = med_month, y = value, color = key)) +
     geom_line(size = 1) +
     geom_smooth(method = "lm", size = 0.5, linetype = "dashed", se = FALSE) +
@@ -181,7 +202,7 @@ g_utilization_fy <- df_apap_n %>%
     theme_bg_ppt() +
     theme(legend.position = "None")
 
-g_orders_fy <- df_apap_orders %>%
+g_orders_fy <- data_apap_orders %>%
     count(fiscal_year, month_plot, order_month, freq_type) %>%
     filter(fiscal_year == fy) %>%
     arrange(order_month) %>%
@@ -223,7 +244,7 @@ g_orders_fy <- df_apap_orders %>%
 #     theme_bg() +
 #     theme(legend.position = "None")
 
-g_units <- df_apap %>%
+g_units <- data_apap_events %>%
     filter(med_month == data_month) %>%
     add_count(nurse_unit, prn_dose, name = "dose_type") %>%
     add_count(nurse_unit, name = "doses") %>%
@@ -242,7 +263,7 @@ g_units <- df_apap %>%
     theme_bg_ppt() +
     theme(legend.position = "top")
 
-g_median <- df_apap %>%
+g_median <- data_apap_events %>%
     filter(med_month == data_month) %>%
     count(nurse_unit, encounter_id) %>%
     group_by(nurse_unit) %>%
@@ -252,13 +273,14 @@ g_median <- df_apap %>%
     mutate_at("nurse_unit", fct_rev) %>%
     filter(n > 1) %>%
     ggplot(aes(x = nurse_unit, y = n)) +
-    geom_col() +
+    geom_col(fill = col_pal[1]) +
+    ggtitle(paste("Median doses per patient by nursing unit in", cur_month)) +
     xlab(NULL) +
     ylab("Median doses per patient") +
     coord_flip() +
-    theme_bg() 
+    theme_bg_ppt() 
 
-g_po_trend <- df_apap %>%
+g_po_trend <- data_apap_events %>%
     filter(fiscal_year == fy) %>%
     group_by(med_month) %>%
     summarize(
@@ -266,15 +288,26 @@ g_po_trend <- df_apap %>%
         po_pct = sum(po_med, na.rm = TRUE) / doses
     ) %>%
     ggplot(aes(x = med_month, y = po_pct)) +
-    geom_line(size = 1) +
-    geom_smooth(method = "lm", size = 0.5, linetype = "dashed", se = FALSE) +
-    scale_x_datetime(NULL, date_breaks = "1 month", date_labels = "%b %y") +
+    geom_line(size = 1, color = col_pal[1]) +
+    geom_smooth(
+        method = "lm", 
+        se = FALSE, 
+        size = 0.5, 
+        linetype = "dashed", 
+        color = col_pal[1]
+    ) +
+    ggtitle("Acetaminophen IV doses given within 2 hours of oral medications") +
+    scale_x_datetime(
+        paste("Fiscal Year", fy), 
+        date_breaks = "1 month", 
+        date_labels = "%b"
+    ) +
     scale_y_continuous("Doses (%)", labels = scales::percent) +
     coord_cartesian(ylim = c(0, 1)) +
-    theme_bg() +
+    theme_bg_ppt() +
     theme(legend.position = "None")
 
-g_po_unit <- df_apap %>%
+g_po_unit <- data_apap_events %>%
     filter(
         med_month == data_month,
         po_med
@@ -284,70 +317,30 @@ g_po_unit <- df_apap %>%
     mutate_at("nurse_unit", fct_rev) %>%
     filter(n >= 5) %>%
     ggplot(aes(x = nurse_unit, y = n)) +
-    geom_col() +
+    geom_col(fill = col_pal[1]) +
+    ggtitle(paste("Opportunity for conversion to oral by nursing unit in", cur_month)) +
     xlab(NULL) +
     ylab("Number of doses") +
     coord_flip() +
-    theme_bg() 
+    theme_bg_ppt() 
 
-g_orders_unit <- df_apap_orders %>%
-    filter(order_month == data_month) %>%
-    add_count(nurse_unit_order, freq_type, name = "freq_type_n") %>%
-    add_count(nurse_unit_order, name = "orders") %>%
-    arrange(orders) %>%
-    mutate_at("nurse_unit_order", fct_inorder) %>%
-    # mutate_at("nurse_unit_order", fct_rev) %>%
-    distinct(nurse_unit_order, freq_type, freq_type_n, orders) %>%
-    filter(orders >= cutoff) %>%
-    ggplot(aes(x = nurse_unit_order, y = freq_type_n, fill = freq_type)) +
-    geom_col() +
-    xlab(NULL) +
-    ylab("Number of orders") +
-    # scale_fill_brewer(NULL, palette = "Paired") +
-    scale_fill_manual(NULL, values = col_pal) +
-    coord_flip() +
-    theme_bg() 
+g_orders_unit <- data_apap_orders %>%
+    gr_count_orders(
+        nurse_unit_order,
+        title = paste("Orders by nursing unit in", cur_month)
+    )
 
-g_orders_service <- df_apap_orders %>%
-    filter(order_month == data_month) %>%
-    add_count(med_service_order, freq_type, name = "freq_type_n") %>%
-    add_count(med_service_order) %>%
-    arrange(n) %>%
-    mutate_at("med_service_order", fct_inorder) %>%
-    # mutate_at("nurse_unit_order", fct_rev) %>%
-    distinct(med_service_order, freq_type, freq_type_n, n) %>%
-    filter(n >= cutoff) %>%
-    ggplot(aes(x = med_service_order, y = freq_type_n, fill = freq_type)) +
-    geom_col() +
-    xlab(NULL) +
-    ylab("Number of orders") +
-    scale_fill_manual(NULL, values = col_pal) +
-    coord_flip() +
-    theme_bg() 
+g_orders_service <- data_apap_orders %>%
+    gr_count_orders(
+        med_service_order,
+        title = paste("Orders by primary service in", cur_month)
+    )
 
-g_orders_provider <- df_apap_orders %>%
-    mutate_at(
-        "provider_position", 
-        str_replace_all, 
-        pattern = " eOrder", 
-        replacement = ""
-    ) %>%
-    filter(order_month == data_month) %>%
-    add_count(provider_position, freq_type, name = "freq_type_n") %>%
-    add_count(provider_position) %>%
-    arrange(n) %>%
-    mutate_at("provider_position", fct_inorder) %>%
-    distinct(provider_position, freq_type, freq_type_n, n) %>%
-    filter(n >= cutoff) %>%
-    ggplot(aes(x = provider_position, y = freq_type_n, fill = freq_type)) +
-    geom_col() +
-    xlab(NULL) +
-    ylab("Number of orders") +
-    scale_fill_manual(NULL, values = col_pal) +
-    coord_flip() +
-    theme_bg() 
-
-
+g_orders_provider <- data_apap_orders %>%
+    gr_count_orders(
+        provider_position,
+        title = paste("Orders by provider role in", cur_month)
+    )
 
 # powerpoint -------------------------------------------
 
@@ -400,43 +393,54 @@ read_pptx() %>%
         width = w, 
         height = h
     ) %>%
-    
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with(
-        paste("Median doses per patient by nursing unit in", cur_month),
-        location = ph_location_type("title")
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_median, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
     ) %>%
-    ph_with_vg(ggobj = g_median, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with(
-        "Acetaminophen IV doses given within 2 hours of oral medications",
-        location = ph_location_type("title")
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_po_trend, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
     ) %>%
-    ph_with_vg(ggobj = g_po_trend, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with(
-        paste("IV doses given within 2 hours of oral medications by nursing unit in", cur_month),
-        location = ph_location_type("title")
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_po_unit, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
     ) %>%
-    ph_with_vg(ggobj = g_po_unit, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with(
-        paste("Orders by nursing unit in", cur_month),
-        location = ph_location_type("title")
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_orders_unit, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
     ) %>%
-    ph_with_vg(ggobj = g_orders_unit, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with(
-        paste("Orders by primary service in", cur_month),
-        location = ph_location_type("title")
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_orders_service, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
     ) %>%
-    ph_with_vg(ggobj = g_orders_service, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with(
-        paste("Orders by provider role in", cur_month),
-        location = ph_location_type("title")
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_orders_provider, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
     ) %>%
-    ph_with_vg(ggobj = g_orders_provider, type = "body") %>%
     print(
         target = paste0(
             "report/ppt/apap_iv_utilization_",
