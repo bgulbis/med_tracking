@@ -363,6 +363,88 @@ g_orders_provider <- data_apap_orders %>%
         subtitle = cur_month
     )
 
+# pediatric data ---------------------------------------
+
+n_apap_pts_pedi <- data_apap_events %>%
+    filter(facility_event == "HC Childrens") %>%
+    distinct(encounter_id, med_month) %>%
+    count(med_month, name = "patients") 
+
+g_utilization_fy_pedi <- data_apap_events %>%
+    filter(
+        facility_event == "HC Childrens",
+        fiscal_year == fy
+    ) %>%
+    count(med_month, name = "doses") %>%
+    left_join(n_apap_pts_pedi, by = "med_month") %>%
+    gather("key", "value", doses, patients) %>%
+    group_by(key) %>%
+    mutate(
+        label = if_else(
+            med_month == last(med_month),
+            str_to_sentence(key),
+            NA_character_
+        )
+    ) %>%
+    gr_trend(
+        x = med_month,
+        y = value,
+        color = key,
+        label = label,
+        smooth = TRUE,
+        title = "Monthly utilization of IV acetaminophen"
+    )
+
+g_orders_fy_pedi <- data_apap_orders %>%
+    filter(
+        facility_order == "HC Childrens",
+        fiscal_year == fy
+    ) %>%
+    count(fiscal_year, month_plot, order_month, freq_type) %>%
+    arrange(order_month) %>%
+    group_by(freq_type) %>%
+    mutate(
+        label = if_else(
+            order_month == last(order_month),
+            freq_type,
+            NA_character_
+        )
+    ) %>%
+    gr_trend(
+        x = order_month,
+        y = n,
+        color = freq_type,
+        label = label,
+        title = "Monthly orders of IV acetaminophen"
+    )
+
+g_orders_unit_pedi <- data_apap_orders %>%
+    filter(facility_order == "HC Childrens") %>%
+    gr_count_orders(
+        nurse_unit_order,
+        title = "Orders by nursing unit", 
+        subtitle = cur_month,
+        cutoff = 0
+    )
+
+g_orders_service_pedi <- data_apap_orders %>%
+    filter(facility_order == "HC Childrens") %>%
+    gr_count_orders(
+        med_service_order,
+        title = "Orders by primary service",
+        subtitle = cur_month,
+        cutoff = 0
+    )
+
+g_orders_provider_pedi <- data_apap_orders %>%
+    filter(facility_order == "HC Childrens") %>%
+    gr_count_orders(
+        provider_position,
+        title = "Orders by provider role",
+        subtitle = cur_month,
+        cutoff = 0
+    )
+
 # powerpoint -------------------------------------------
 
 slide_layout <- "Title and Content"
@@ -373,6 +455,7 @@ slide_master <- "Office Theme"
 # layout_properties(read_pptx(), layout = "Title Slide", master = slide_master)
 # layout_properties(read_pptx(), layout = slide_layout, master = slide_master)
 # layout_properties(read_pptx(), layout = "Blank", master = slide_master)
+# layout_properties(read_pptx(), layout = "Section Header", master = slide_master)
 
 cur_month <- format(data_month, "%B %Y")
 l <- 0.5
@@ -397,7 +480,6 @@ read_pptx() %>%
         top = l, 
         width = w, 
         height = h
-        # fonts = list("Arial" = "Arial")
     ) %>%
     add_slide(layout = "Blank", master = slide_master) %>%
     ph_with_vg_at(
@@ -458,6 +540,48 @@ read_pptx() %>%
     add_slide(layout = "Blank", master = slide_master) %>%
     ph_with_vg_at(
         ggobj = g_orders_provider, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Section Header", master = slide_master) %>%
+    ph_with_text(type = "title", str = "Pediatric Utilization Data") %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_utilization_fy_pedi, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_orders_fy_pedi, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_orders_unit_pedi, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_orders_service_pedi, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_orders_provider_pedi, 
         left = l, 
         top = l, 
         width = w, 
