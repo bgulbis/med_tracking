@@ -35,8 +35,6 @@ fy_months <- c(
 
 col_pal <- c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2")
 text_col <- "Grey35"
-family <- "Calibri"
-# family <- NULL
 
 cutoff <- 15L
 
@@ -63,6 +61,46 @@ get_data <- function(path, pattern, col_types = NULL) {
         ) %>%
         rename_all(stringr::str_to_lower)
 }
+
+gr_trend <- function(df, x, y, color, label, smooth = FALSE, title = waiver(), 
+                     subtitle = waiver(), caption = waiver()) {
+    x <- enquo(x)
+    y <- enquo(y)
+    color <- enquo(color)
+    label <- enquo(label)
+    
+    g <- df %>%
+        ggplot(aes(x = !!x, y = !!y, color = !!color)) +
+        geom_line(size = 1)
+    
+    if (smooth) {
+        g <- g +
+            geom_smooth(
+                method = "lm", 
+                size = 0.5, 
+                linetype = "dashed", 
+                se = FALSE
+            )
+    }
+    
+    g <- g +
+        geom_text_repel(
+            aes(label = !!label), 
+            nudge_y = -1, 
+            color = text_col
+        ) +
+        labs(title = title, subtitle = subtitle, caption = caption) +
+        scale_x_datetime(
+            paste("Fiscal Year", fy), 
+            date_breaks = "1 month", 
+            date_labels = "%b"
+        ) +
+        ylab("Number") +
+        scale_color_manual(NULL, values = col_pal) +
+        expand_limits(y = 0) +
+        theme_bg_ppt() +
+        theme(legend.position = "None")
+} 
 
 gr_count_orders <- function(df, x, title, subtitle, cutoff = 15) {
     x <- enquo(x)
@@ -181,27 +219,14 @@ g_utilization_fy <- data_apap_events %>%
             NA_character_
         )
     ) %>%
-    ggplot(aes(x = med_month, y = value, color = key)) +
-    geom_line(size = 1) +
-    geom_smooth(method = "lm", size = 0.5, linetype = "dashed", se = FALSE) +
-    geom_text_repel(
-        aes(label = label), 
-        nudge_y = -1, 
-        color = text_col
-        # family = family
-    ) +
-    ggtitle("Monthly utilization of IV acetaminophen") +
-    scale_x_datetime(
-        paste("Fiscal Year", fy), 
-        date_breaks = "1 month", 
-        date_labels = "%b"
-    ) +
-    ylab("Number") +
-    # scale_color_brewer(NULL, palette = col_pal) +
-    scale_color_manual(NULL, values = col_pal) +
-    expand_limits(y = 0) +
-    theme_bg_ppt() +
-    theme(legend.position = "None")
+    gr_trend(
+        x = med_month,
+        y = value,
+        color = key,
+        label = label,
+        smooth = TRUE,
+        title = "Monthly utilization of IV acetaminophen"
+    )
 
 g_orders_fy <- data_apap_orders %>%
     count(fiscal_year, month_plot, order_month, freq_type) %>%
@@ -215,24 +240,13 @@ g_orders_fy <- data_apap_orders %>%
             NA_character_
         )
     ) %>%
-    ggplot(aes(x = order_month, y = n, color = freq_type)) +
-    geom_line(size = 1) +
-    geom_text_repel(
-        aes(label = label), 
-        # nudge_y = -1, 
-        color = text_col
-        # family = family
-    ) +
-    ggtitle("Monthly orders for IV acetaminophen") +
-    scale_x_datetime(
-        paste("Fiscal Year", fy), 
-        date_breaks = "1 month", 
-        date_labels = "%b"
-    ) +
-    ylab("Number") +
-    scale_color_manual(NULL, values = col_pal) +
-    theme_bg_ppt() +
-    theme(legend.position = "None")
+    gr_trend(
+        x = order_month,
+        y = n,
+        color = freq_type,
+        label = label,
+        title = "Monthly orders of IV acetaminophen"
+    )
 
 # g_utilization_all <- df_apap_n %>%
 #     ggplot(aes(x = med_month, y = value, color = key)) +
