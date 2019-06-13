@@ -36,6 +36,7 @@ fy_months <- c(
 col_pal <- c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2")
 text_col <- "Grey35"
 family <- "Calibri"
+# family <- NULL
 
 cutoff <- 15L
 
@@ -186,8 +187,8 @@ g_utilization_fy <- data_apap_events %>%
     geom_text_repel(
         aes(label = label), 
         nudge_y = -1, 
-        color = text_col, 
-        family = family
+        color = text_col
+        # family = family
     ) +
     ggtitle("Monthly utilization of IV acetaminophen") +
     scale_x_datetime(
@@ -218,9 +219,9 @@ g_orders_fy <- data_apap_orders %>%
     geom_line(size = 1) +
     geom_text_repel(
         aes(label = label), 
-        nudge_y = -1, 
-        color = text_col, 
-        family = family
+        # nudge_y = -1, 
+        color = text_col
+        # family = family
     ) +
     ggtitle("Monthly orders for IV acetaminophen") +
     scale_x_datetime(
@@ -376,6 +377,7 @@ read_pptx() %>%
         top = l, 
         width = w, 
         height = h
+        # fonts = list("Arial" = "Arial")
     ) %>%
     add_slide(layout = "Blank", master = slide_master) %>%
     ph_with_vg_at(
