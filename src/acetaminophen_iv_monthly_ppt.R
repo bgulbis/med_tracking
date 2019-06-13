@@ -289,7 +289,11 @@ g_median <- data_apap_events %>%
     filter(n > 1) %>%
     ggplot(aes(x = nurse_unit, y = n)) +
     geom_col(fill = col_pal[1]) +
-    labs(title = "Median doses per patient by nursing unit", subtitle = cur_month) +
+    labs(
+        title = "Median doses per patient by nursing unit", 
+        subtitle = cur_month,
+        caption = "Only nursing units with a median > 1 are shown"
+    ) +
     xlab(NULL) +
     ylab("Median doses per patient") +
     coord_flip() +
@@ -395,6 +399,35 @@ g_utilization_fy_pedi <- data_apap_events %>%
         title = "Monthly utilization of IV acetaminophen"
     )
 
+n_apap_pts_picu <- data_apap_events %>%
+    filter(
+        facility_event == "HC Childrens",
+        nurse_unit_event == "HC PICU"
+    ) %>%
+    distinct(encounter_id, med_month) %>%
+    count(med_month, name = "patients") 
+
+g_utilization_fy_picu <- data_apap_events %>%
+    filter(
+        facility_event == "HC Childrens",
+        nurse_unit_event == "HC PICU",
+        fiscal_year == fy
+    ) %>%
+    count(med_month, name = "doses") %>%
+    left_join(n_apap_pts_picu, by = "med_month") %>%
+    gather("key", "value", doses, patients) %>%
+    mutate_at("key", str_to_title) %>%
+    group_by(key) %>%
+    gr_trend(
+        x = med_month,
+        y = value,
+        color = key,
+        label = value,
+        smooth = TRUE,
+        title = "Monthly utilization of IV acetaminophen in PICU"
+    ) +
+    theme(legend.position = "top")
+
 g_orders_fy_pedi <- data_apap_orders %>%
     filter(
         facility_order == "HC Childrens",
@@ -417,6 +450,102 @@ g_orders_fy_pedi <- data_apap_orders %>%
         label = label,
         title = "Monthly orders of IV acetaminophen"
     )
+
+g_units_pedi <- data_apap_events %>%
+    filter(
+        facility_event == "HC Childrens",
+        med_month == data_month
+    ) %>%
+    add_count(nurse_unit, prn_dose, name = "dose_type") %>%
+    add_count(nurse_unit, name = "doses") %>%
+    arrange(doses) %>%
+    mutate_at("nurse_unit", fct_inorder) %>%
+    distinct(nurse_unit, prn_dose, dose_type, doses) %>%
+    # filter(doses >= cutoff) %>%
+    ggplot(aes(x = nurse_unit, y = dose_type, fill = prn_dose)) +
+    geom_col() +
+    labs(title = "Doses by nursing unit", subtitle = cur_month) +
+    xlab(NULL) +
+    ylab("Number of doses") +
+    scale_fill_manual(NULL, values = col_pal, labels = c("Scheduled", "PRN")) +
+    coord_flip() +
+    theme_bg_ppt() +
+    theme(legend.position = "top")
+
+g_median_pedi <- data_apap_events %>%
+    filter(
+        facility_event == "HC Childrens",
+        med_month == data_month
+    ) %>%
+    count(nurse_unit, encounter_id) %>%
+    group_by(nurse_unit) %>%
+    summarize_at("n", median, na.rm = TRUE) %>%
+    arrange(desc(n)) %>%
+    mutate_at("nurse_unit", fct_inorder) %>%
+    mutate_at("nurse_unit", fct_rev) %>%
+    filter(n > 1) %>%
+    ggplot(aes(x = nurse_unit, y = n)) +
+    geom_col(fill = col_pal[1]) +
+    labs(
+        title = "Median doses per patient by nursing unit", 
+        subtitle = cur_month,
+        caption = "Only nursing units with a median > 1 are shown"
+    ) +
+    xlab(NULL) +
+    ylab("Median doses per patient") +
+    coord_flip() +
+    theme_bg_ppt() 
+
+g_po_trend_pedi <- data_apap_events %>%
+    filter(
+        facility_event == "HC Childrens",
+        fiscal_year == fy
+    ) %>%
+    group_by(med_month) %>%
+    summarize(
+        doses = n(),
+        po_pct = sum(po_med, na.rm = TRUE) / doses
+    ) %>%
+    ggplot(aes(x = med_month, y = po_pct)) +
+    geom_line(size = 1, color = col_pal[1]) +
+    geom_smooth(
+        method = "lm", 
+        se = FALSE, 
+        size = 0.5, 
+        linetype = "dashed", 
+        color = col_pal[1]
+    ) +
+    ggtitle("IV doses given within 2 hours of oral medications") +
+    scale_x_datetime(
+        paste("Fiscal Year", fy), 
+        date_breaks = "1 month", 
+        date_labels = "%b"
+    ) +
+    scale_y_continuous("Doses (%)", labels = scales::percent) +
+    coord_cartesian(ylim = c(0, 1)) +
+    theme_bg_ppt() +
+    theme(legend.position = "None")
+
+g_po_unit_pedi <- data_apap_events %>%
+    filter(
+        facility_event == "HC Childrens",
+        med_month == data_month,
+        po_med
+    ) %>%
+    count(nurse_unit, sort = TRUE) %>%
+    mutate_at("nurse_unit", fct_inorder) %>%
+    mutate_at("nurse_unit", fct_rev) %>%
+    # filter(n >= 5) %>%
+    ggplot(aes(x = nurse_unit, y = n)) +
+    geom_col(fill = col_pal[1]) +
+    labs(
+        title = "Opportunity for conversion to oral by nursing unit", 
+        subtitle = cur_month
+    ) +
+    xlab(NULL) +
+    ylab("Number of doses") +
+    coord_flip() +
+    theme_bg_ppt() 
 
 g_orders_unit_pedi <- data_apap_orders %>%
     filter(facility_order == "HC Childrens") %>%
@@ -464,7 +593,7 @@ h <- 6.5
 
 read_pptx() %>%
     add_slide(layout = "Title Slide", master = slide_master) %>%
-    ph_with_text(type = "ctrTitle", str = "Utilization of Acetaminophen IV") %>%
+    ph_with_text(type = "ctrTitle", str = "Utilization of IV Acetaminophen") %>%
     ph_with_text(
         type = "subTitle", 
         str = paste0(
@@ -558,6 +687,46 @@ read_pptx() %>%
     add_slide(layout = "Blank", master = slide_master) %>%
     ph_with_vg_at(
         ggobj = g_orders_fy_pedi, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_units_pedi, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_utilization_fy_picu, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_median_pedi, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_po_trend_pedi, 
+        left = l, 
+        top = l, 
+        width = w, 
+        height = h
+    ) %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    ph_with_vg_at(
+        ggobj = g_po_unit_pedi, 
         left = l, 
         top = l, 
         width = w, 
