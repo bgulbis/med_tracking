@@ -64,7 +64,7 @@ get_data <- function(path, pattern, col_types = NULL) {
         rename_all(stringr::str_to_lower)
 }
 
-gr_count_orders <- function(df, x, title, cutoff = 15) {
+gr_count_orders <- function(df, x, title, subtitle, cutoff = 15) {
     x <- enquo(x)
     
     df %>%
@@ -77,7 +77,7 @@ gr_count_orders <- function(df, x, title, cutoff = 15) {
         filter(orders >= cutoff) %>%
         ggplot(aes(x = !!x, y = freq_type_n, fill = freq_type)) +
         geom_col() +
-        ggtitle(title) +
+        labs(title = title, subtitle = subtitle) +
         xlab(NULL) +
         ylab("Number of orders") +
         scale_fill_manual(NULL, values = col_pal) +
@@ -256,7 +256,7 @@ g_units <- data_apap_events %>%
     filter(doses >= cutoff) %>%
     ggplot(aes(x = nurse_unit, y = dose_type, fill = prn_dose)) +
     geom_col() +
-    ggtitle(paste("Doses by nursing unit in", cur_month)) +
+    labs(title = "Doses by nursing unit", subtitle = cur_month) +
     xlab(NULL) +
     ylab("Number of doses") +
     scale_fill_manual(NULL, values = col_pal, labels = c("Scheduled", "PRN")) +
@@ -275,7 +275,7 @@ g_median <- data_apap_events %>%
     filter(n > 1) %>%
     ggplot(aes(x = nurse_unit, y = n)) +
     geom_col(fill = col_pal[1]) +
-    ggtitle(paste("Median doses per patient by nursing unit in", cur_month)) +
+    labs(title = "Median doses per patient by nursing unit", subtitle = cur_month) +
     xlab(NULL) +
     ylab("Median doses per patient") +
     coord_flip() +
@@ -297,7 +297,7 @@ g_po_trend <- data_apap_events %>%
         linetype = "dashed", 
         color = col_pal[1]
     ) +
-    ggtitle("Acetaminophen IV doses given within 2 hours of oral medications") +
+    ggtitle("IV doses given within 2 hours of oral medications") +
     scale_x_datetime(
         paste("Fiscal Year", fy), 
         date_breaks = "1 month", 
@@ -319,7 +319,10 @@ g_po_unit <- data_apap_events %>%
     filter(n >= 5) %>%
     ggplot(aes(x = nurse_unit, y = n)) +
     geom_col(fill = col_pal[1]) +
-    ggtitle(paste("Opportunity for conversion to oral by nursing unit in", cur_month)) +
+    labs(
+        title = "Opportunity for conversion to oral by nursing unit", 
+        subtitle = cur_month
+    ) +
     xlab(NULL) +
     ylab("Number of doses") +
     coord_flip() +
@@ -328,26 +331,29 @@ g_po_unit <- data_apap_events %>%
 g_orders_unit <- data_apap_orders %>%
     gr_count_orders(
         nurse_unit_order,
-        title = paste("Orders by nursing unit in", cur_month)
+        title = "Orders by nursing unit", 
+        subtitle = cur_month
     )
 
 g_orders_service <- data_apap_orders %>%
     gr_count_orders(
         med_service_order,
-        title = paste("Orders by primary service in", cur_month)
+        title = "Orders by primary service",
+        subtitle = cur_month
     )
 
 g_orders_provider <- data_apap_orders %>%
     gr_count_orders(
         provider_position,
-        title = paste("Orders by provider role in", cur_month)
+        title = "Orders by provider role",
+        subtitle = cur_month
     )
 
 # powerpoint -------------------------------------------
 
 slide_layout <- "Title and Content"
 slide_master <- "Office Theme"
-title_size <- fp_text(font.size = 32)
+# title_size <- fp_text(font.size = 32)
 
 # layout_summary(read_pptx())
 # layout_properties(read_pptx(), layout = "Title Slide", master = slide_master)
