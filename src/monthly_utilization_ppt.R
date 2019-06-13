@@ -462,7 +462,7 @@ read_pptx() %>%
     ph_with_vg(ggobj = g_ertap, type = "body") %>%
     print(
         target = paste0(
-            "figs/target_med_utilization_",
+            "report/utilization/target_med_utilization_",
             format(month_end, "%Y-%m"),
             ".pptx"
         )
@@ -527,7 +527,7 @@ read_pptx() %>%
     ph_with_vg(ggobj = g_ertap_fcast, type = "body") %>%
     print(
         target = paste0(
-            "figs/target_med_forecast_",
+            "report/utilization/target_med_forecast_",
             format(month_end, "%Y-%m"),
             ".pptx"
         )
