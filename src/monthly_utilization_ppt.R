@@ -107,6 +107,13 @@ plot_utilization <- function(df) {
 
 plot_forecast <- function(df) {
     df %>%
+        group_by(key) %>%
+        mutate(
+            label = if_else(
+                index == last(index), 
+                as.integer(round(n, 0)), 
+                NA_integer_)
+        ) %>%
         ggplot(aes(x = index, y = n)) +
         geom_ribbon(
             aes(ymin = lo.95, ymax = hi.95), 
@@ -118,9 +125,21 @@ plot_forecast <- function(df) {
             fill = "grey75", 
             alpha = 0.5
         ) +
-        geom_line(aes(color = key, linetype = key), size = 2) +
-        scale_color_manual(NULL, values = c("black", "blue")) +
+        geom_line(aes(linetype = key, size = key)) +
+        geom_point(
+            aes(y = label, size = key, fill = key), 
+            shape = 21, 
+            color = "black", 
+            show.legend = FALSE
+        ) +
+        geom_text_repel(
+            aes(label = label), 
+            direction = "y",
+            point.padding = 1
+        ) +
         scale_linetype_manual(NULL, values = c("solid", "dashed")) +
+        scale_size_manual(NULL, values = c(1.75, 1)) +
+        scale_fill_manual(NULL, values = c("white", "white")) +
         scale_x_datetime(
             NULL, 
             breaks = seq(
@@ -154,9 +173,11 @@ month_end <- max(df_albumin$med_date)
 
 ts_albumin <- tk_ts(df_albumin)
 
-fcast_albumin <- make_forecast(ts_albumin)
+fcast_albumin <- make_forecast(ts_albumin) 
+
 g_albumin <- plot_utilization(df_albumin)
 g_albumin_fcast <- plot_forecast(fcast_albumin)
+# g_albumin_fcast
 
 # acetaminophen ----------------------------------------
 
