@@ -1,13 +1,15 @@
-import numpy as np 
-import pandas as pd 
-import datetime as datetime 
-
-from pptx import Presentation 
+# import numpy as np 
+import pandas as pd
+from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
-from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_DATA_LABEL_POSITION, XL_MARKER_STYLE, XL_TICK_MARK
+from pptx.enum.chart import (XL_CHART_TYPE, XL_DATA_LABEL_POSITION,
+                             XL_LEGEND_POSITION, XL_MARKER_STYLE)
 from pptx.enum.dml import MSO_LINE_DASH_STYLE
 from pptx.util import Inches, Pt
+
+# import datetime as datetime 
+
 
 prs = Presentation()
 # title slide
