@@ -107,6 +107,7 @@ def format_marker(chart, i, j, font_nm, col_mark, col_line, brght=0):
     chart.series[i].data_labels.font.bold = False
     chart.series[i].data_labels.position = XL_DATA_LABEL_POSITION.BELOW
     chart.series[i].points[j].marker.style = XL_MARKER_STYLE.CIRCLE
+    chart.series[i].points[j].marker.size = 7
     chart.series[i].points[j].marker.format.fill.solid()
     chart.series[i].points[j].marker.format.fill.fore_color.theme_color = col_mark
     chart.series[i].points[j].marker.format.fill.fore_color.brightness = brght
