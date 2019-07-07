@@ -2,8 +2,9 @@ import pandas as pd
 from pptx import Presentation 
 from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
-from pptx.enum.chart import (XL_CHART_TYPE, XL_LEGEND_POSITION, XL_DATA_LABEL_POSITION, 
-                            XL_MARKER_STYLE, XL_TICK_MARK)
+from pptx.enum.chart import (XL_CHART_TYPE, XL_LEGEND_POSITION, 
+                            XL_DATA_LABEL_POSITION, XL_MARKER_STYLE, 
+                            XL_TICK_MARK)
 from pptx.enum.dml import MSO_LINE_DASH_STYLE, MSO_THEME_COLOR
 from pptx.util import Inches, Pt
 
@@ -100,14 +101,19 @@ def format_axis_tick_labels(axis, font_nm, ax_bright, num_fmt):
     return axis
 
 def format_marker(chart, i, j, font_nm, col_mark, col_line, brght=0):
-    chart.series[i].data_labels.number_format = "#,##0"
+    if i == 0:
+        mrk_sz = 7
+    else: 
+        mrk_sz = 5
+
 #     chart.series[i].data_labels.show_value = True
+    chart.series[i].data_labels.number_format = "#,##0"
     chart.series[i].data_labels.font.name = font_nm
     chart.series[i].data_labels.font.size = Pt(18)
     chart.series[i].data_labels.font.bold = False
     chart.series[i].data_labels.position = XL_DATA_LABEL_POSITION.BELOW
     chart.series[i].points[j].marker.style = XL_MARKER_STYLE.CIRCLE
-    chart.series[i].points[j].marker.size = 7
+    chart.series[i].points[j].marker.size = mrk_sz
     chart.series[i].points[j].marker.format.fill.solid()
     chart.series[i].points[j].marker.format.fill.fore_color.theme_color = col_mark
     chart.series[i].points[j].marker.format.fill.fore_color.brightness = brght
