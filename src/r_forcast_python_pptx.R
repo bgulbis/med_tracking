@@ -63,18 +63,26 @@ make_df <- function(df, ...) {
         arrange(med_date)
 }
 
-make_forecast <- function(ts, h = 12) {
-    forecast::auto.arima(ts, lambda = 0) %>%
+make_forecast <- function(ts, h = 12, lambda = "auto") {
+    forecast::auto.arima(
+        ts, 
+        seasonal = FALSE,
+        stepwise = FALSE,
+        approximation = FALSE,
+        lambda = lambda,
+        biasadj = TRUE
+    ) %>%
         forecast::forecast(h) %>%
         sweep::sw_sweep(timetk_idx = TRUE) %>%
         dplyr::mutate_at(
             "index",
             lubridate::floor_date, 
-            unit = floor_unit
+            unit = "day"
         ) %>%
         dplyr::mutate_at("key", stringr::str_to_title)
 }
 
+# acetaminophen ----------------------------------------
 dir_data <- "data/tidy/acetaminophen"
 
 data_apap_events <- get_data(dir_data, "apap_events") %>%
@@ -90,11 +98,44 @@ df_apap <- data_apap_events %>%
     make_df()
 
 ts_apap <- tk_ts(df_apap)
-
-fcast <- auto.arima(ts_apap, seasonal = FALSE, stepwise = FALSE)
-summary(fcast)
-
-f <- forecast(fcast, 12)
-s <- sw_sweep(f, timetk_idx = TRUE)
-
 fcast_apap <- make_forecast(ts_apap)
+
+ppt_apap <- fcast_apap %>%
+    select(index, key, n) %>%
+    spread(key, n) %>%
+    mutate_at("index", floor_date, unit = "month") %>%
+    mutate_at("Forecast", round, digits = 0)
+
+# ivig -------------------------------------------------
+
+dir_data <- "data/tidy/ivig"
+data_ivig_events <- get_data(dir_data, "ivig_events")
+# data_ivig_orders <- get_data(dir_data, "ivig_orders")
+
+df_ivig <- data_ivig_events %>%
+    filter(facility %in% campus) %>%
+    make_df()
+
+ts_ivig <- tk_ts(df_ivig)
+fcast_ivig <- make_forecast(ts_ivig)
+
+ppt_ivig <- fcast_ivig %>%
+    select(index, key, n) %>%
+    spread(key, n) %>%
+    mutate_at("index", floor_date, unit = "month") %>%
+    mutate_at("Forecast", round, digits = 0)
+
+
+# python -----------------------------------------------
+
+library(reticulate)
+use_condaenv("med_tracking")
+pptx <- import("pptx")
+source_python("src/pptx_slides.py")
+
+prs <- pptx$Presentation()
+add_forecast_slide(prs, ppt_apap, "acetaminophen")
+add_forecast_slide(prs, ppt_ivig, "IVIG")
+prs$save("doc/py_from_r.pptx")
+
+
