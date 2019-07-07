@@ -3,6 +3,7 @@ library(lubridate)
 library(forecast)
 library(timetk)
 library(sweep)
+library(prophet)
 
 tz_locale <- locale(tz = "US/Central")
 floor_unit <- "month"
@@ -97,6 +98,44 @@ df_apap <- data_apap_events %>%
     ) %>%
     make_df()
 
+df_daily <- data_apap_events %>%
+    mutate(ds = as_date(clinical_event_datetime)) %>%
+    filter(
+        facility_event %in% campus,
+        clinical_event_datetime < rollback(now("US/Central"), TRUE, FALSE)
+    ) %>%
+    arrange(ds) %>%
+    count(ds, name = "y")
+
+ts_daily <- tk_ts(df_daily, silent = TRUE)
+acf(ts_daily)
+pacf(ts_daily)
+
+fit <- auto.arima(
+    ts_daily,
+    seasonal = FALSE,
+    stepwise = FALSE,
+    approximation = FALSE,
+    lambda = "auto",
+    biasadj = TRUE
+)
+summary(fit)
+
+f <- forecast(fit, h = 366)
+plot(f)
+s <- sw_sweep(f, timetk_idx = TRUE)
+
+df_daily$cap <- max(df_daily$y) * 1.2
+df_daily$floor <- min(df_daily$y) * 0.6
+
+m <- prophet(df_daily, growth = "logistic")
+future <- make_future_dataframe(m, periods = 366)
+future$cap <- max(df_daily$y) * 1.2
+future$floor <- min(df_daily$y) * 0.6
+forecast <- predict(m, future)
+plot(m, forecast)
+
+
 ts_apap <- tk_ts(df_apap)
 fcast_apap <- make_forecast(ts_apap)
 
@@ -133,8 +172,10 @@ use_condaenv("med_tracking")
 pptx <- import("pptx")
 source_python("src/pptx_slides.py")
 
+pd <- import("pandas")
+
 prs <- pptx$Presentation()
-add_forecast_slide(prs, ppt_apap, "acetaminophen")
+add_forecast_slide(prs, df, "acetaminophen")
 add_forecast_slide(prs, ppt_ivig, "IVIG")
 prs$save("doc/py_from_r.pptx")
 
