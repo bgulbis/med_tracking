@@ -28,43 +28,34 @@ get_data <- function(path, pattern, col_types = NULL) {
             locale = tz_locale,
             col_types = col_types
         ) %>%
-        rename_all(stringr::str_to_lower)
+        dplyr::rename_all(stringr::str_to_lower) %>%
+        dplyr::distinct()
 }
 
-make_df <- function(df, ...) {
-    cnt <- enquos(...)
+prep_df <- function(df, ...) {
+    cnt <- rlang::enquos(...)
     
     df %>%
-        mutate(
-            med_date = floor_date(clinical_event_datetime, unit = floor_unit),
-            fiscal_year = year(med_date %m+% months(6)),
-            month_plot = month(med_date, label = TRUE, abbr = TRUE)
+        dplyr::select(
+            event_datetime = tidyselect::matches(
+                "clinical_event_datetime|order_datetime"
+            ),
+            facility = tidyselect::starts_with("facility")
         ) %>%
-        count(fiscal_year, month_plot, med_date, !!!cnt) %>%
-        mutate_at("fiscal_year", as_factor) %>%
-        mutate_at(
-            "month_plot", 
-            factor, 
-            ordered = TRUE, 
-            levels = c(
-                "Jul", 
-                "Aug",
-                "Sep",
-                "Oct",
-                "Nov",
-                "Dec",
-                "Jan",
-                "Feb",
-                "Mar",
-                "Apr",
-                "May",
-                "Jun"
+        dplyr::mutate(ds = lubridate::as_date(event_datetime)) %>%
+        dplyr::filter(
+            facility %in% campus,
+            event_datetime < lubridate::rollback(
+                lubridate::now("US/Central"), 
+                TRUE, 
+                FALSE
             )
         ) %>%
-        arrange(med_date)
+        dplyr::arrange(ds) %>%
+        dplyr::count(ds, !!!cnt, name = "y")
 }
 
-make_forecast <- function(ts, h = 12, lambda = "auto") {
+fcast_arima <- function(ts, h = 12, lambda = "auto") {
     forecast::auto.arima(
         ts, 
         seasonal = FALSE,
@@ -74,14 +65,26 @@ make_forecast <- function(ts, h = 12, lambda = "auto") {
         biasadj = TRUE
     ) %>%
         forecast::forecast(h) %>%
-        sweep::sw_sweep(timetk_idx = TRUE) %>%
-        dplyr::mutate_at(
-            "index",
-            lubridate::floor_date, 
-            unit = "day"
-        ) %>%
-        dplyr::mutate_at("key", stringr::str_to_title)
+        sweep::sw_sweep(timetk_idx = TRUE) 
 }
+
+run_forecast <- function(med, pattern, h) {
+    f <- get_data(paste0("data/tidy/", med), pattern) %>%
+        prep_df() %>%
+        timetk::tk_ts(silent = TRUE) %>%
+        fcast_arima(h) 
+    
+    readr::write_csv(f, paste0("data/external/forecast/", med, ".csv"))
+}
+
+run_all <- function(med, pattern, h) {
+    purrr::walk2(med, pattern, run_forecast, h = h)
+}
+
+meds <- c("acetaminophen", "bupivacaine-liposome", "ivig")
+files <- c("apap_events", "bupivacaine-liposome_orders", "ivig_events")
+
+run_all(meds, files, 366)
 
 # acetaminophen ----------------------------------------
 dir_data <- "data/tidy/acetaminophen"
@@ -99,13 +102,7 @@ df_apap <- data_apap_events %>%
     make_df()
 
 df_daily <- data_apap_events %>%
-    mutate(ds = as_date(clinical_event_datetime)) %>%
-    filter(
-        facility_event %in% campus,
-        clinical_event_datetime < rollback(now("US/Central"), TRUE, FALSE)
-    ) %>%
-    arrange(ds) %>%
-    count(ds, name = "y")
+    prep_df()
 
 ts_daily <- tk_ts(df_daily, silent = TRUE)
 acf(ts_daily)
@@ -126,12 +123,12 @@ plot(f)
 s <- sw_sweep(f, timetk_idx = TRUE)
 
 df_daily$cap <- max(df_daily$y) * 1.2
-df_daily$floor <- min(df_daily$y) * 0.6
+df_daily$floor <- min(df_daily$y) * 0.8
 
 m <- prophet(df_daily, growth = "logistic")
 future <- make_future_dataframe(m, periods = 366)
 future$cap <- max(df_daily$y) * 1.2
-future$floor <- min(df_daily$y) * 0.6
+future$floor <- min(df_daily$y) * 0.8
 forecast <- predict(m, future)
 plot(m, forecast)
 
