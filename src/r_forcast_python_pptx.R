@@ -68,23 +68,60 @@ fcast_arima <- function(ts, h = 12, lambda = "auto") {
         sweep::sw_sweep(timetk_idx = TRUE) 
 }
 
-run_forecast <- function(med, pattern, h) {
-    f <- get_data(paste0("data/tidy/", med), pattern) %>%
-        prep_df() %>%
-        timetk::tk_ts(silent = TRUE) %>%
-        fcast_arima(h) 
+run_forecast <- function(x, pattern, h) {
+    fx <- function(df, h) {
+        df %>%
+            prep_df() %>%
+            timetk::tk_ts(silent = TRUE) %>%
+            fcast_arima(h) 
+    }
     
-    readr::write_csv(f, paste0("data/external/forecast/", med, ".csv"))
+    abx <- c(
+        "ceftaroline", 
+        "ceftazidime-avibactam", 
+        "ceftolozane-tazobactam", 
+        "DAPTOmycin", 
+        "ertapenem",
+        "meropenem-vaborbactam"
+    )
+    
+    if (x %in% abx) {
+        get_data("data/tidy/abx", pattern) %>%
+            dplyr::filter(!!rlang::sym("med") == x) %>%
+            fx(h)
+    } else if (x %in% c("eculizumab_inpt", "eculizumab_outpt")) {
+        get_data("data/tidy/eculizumab", pattern) %>%
+            dplyr::filter(!!rlang::sym("encounter_type") == x) %>%
+            fx(h)
+    } else if (x == "pegfilgrastim") {
+        get_data("data/tidy/eculizumab", pattern) %>%
+            dplyr::filter(!!rlang::sym("encounter_type") == x) %>%
+            fx(h)
+        
+    } else {
+        get_data(paste0("data/tidy/", x), pattern) %>%
+            fx(h)
+    }
 }
 
-run_all <- function(med, pattern, h) {
-    purrr::walk2(med, pattern, run_forecast, h = h)
-}
+meds <- c(
+    "acetaminophen" = "apap_events",
+    "bupivacaine-liposome" = "bupivacaine-liposome_orders",
+    "calcitonin" = "calcitonin_events",
+    "eculizumab_inpt" = "eculizumab_events",
+    "eculizumab_outpt" = "eculizumab_events",
+    "ivig" = "ivig_events",
+    "ceftaroline" = "antibiotics_events",
+    "ceftazidime-avibactam" = "antibiotics_events",
+    "ceftolozane-tazobactam" = "antibiotics_events",
+    "DAPTOmycin" = "antibiotics_events",
+    "ertapenem" = "antibiotics_events",
+    "meropenem-vaborbactam" = "antibiotics_events"
+)
 
-meds <- c("acetaminophen", "bupivacaine-liposome", "ivig")
-files <- c("apap_events", "bupivacaine-liposome_orders", "ivig_events")
-
-run_all(meds, files, 366)
+l <- map2(names(meds), meds, run_forecast, h = 366)
+names(l) <- names(meds)
+openxlsx::write.xlsx(l, "data/final/forecast_daily.xlsx")
 
 # acetaminophen ----------------------------------------
 dir_data <- "data/tidy/acetaminophen"
