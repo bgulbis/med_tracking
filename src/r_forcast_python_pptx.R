@@ -78,15 +78,40 @@ fcast_arima <- function(ts, h = 12, lambda = "auto") {
         forecast::forecast(h) 
 }
 
+prep_pptx <- function(df) {
+    index <- rlang::sym("index")
+    key <- rlang::sym("key")
+    y <- rlang::sym("y")
+    
+    df_ci <- df %>%
+        dplyr::select(
+            !!index,
+            !!rlang::sym("hi.95"),
+            !!rlang::sym("hi.80"),
+            !!rlang::sym("lo.80"),
+            !!rlang::sym("lo.95")
+        )
+        
+    df %>%
+        dplyr::select(!!index, !!key, !!y) %>%
+        dplyr::mutate_at("key", stringr::str_to_sentence) %>%
+        tidyr::spread(!!key, !!y) %>%
+        dplyr::left_join(df_ci, by = "index")
+}
+
 run_forecast <- function(x, pattern, h, mod = "arima", unit = "month") {
     fx <- function(df, h) {
         if (mod == "arima") {
+            
             df %>%
                 prep_df(unit) %>%
                 timetk::tk_ts(silent = TRUE) %>%
                 fcast_arima(h) %>%
-                sweep::sw_sweep(timetk_idx = TRUE) 
+                sweep::sw_sweep(timetk_idx = TRUE) %>%
+                prep_pptx()
+            
         } else if (mod == "prophet") {
+            
             prep <- prep_df(df, unit = "day") 
             prep$cap <- max(prep$y) * 1.2
             prep$floor <- min(prep$y) * 0.8
@@ -95,6 +120,7 @@ run_forecast <- function(x, pattern, h, mod = "arima", unit = "month") {
             future$cap <- max(prep$y) * 1.2
             future$floor <- min(prep$y) * 0.8
             predict(mod, future)
+            
         }
     }
     
@@ -119,7 +145,10 @@ run_forecast <- function(x, pattern, h, mod = "arima", unit = "month") {
         get_data(paste0("data/tidy/", x), pattern) %>%
             dplyr::filter(!!rlang::sym("encounter_type") == "Inpatient") %>%
             fx(h)
-        
+    } else if (x == "sugammadex") {
+        get_data(paste0("data/tidy/", x), pattern) %>%
+            dplyr::filter(!!rlang::sym("med") == x) %>%
+            fx(h)
     } else {
         get_data(paste0("data/tidy/", x), pattern) %>%
             fx(h)
@@ -132,12 +161,15 @@ meds <- c(
     "calcitonin" = "calcitonin_events",
     # "eculizumab_inpt" = "eculizumab_events",
     # "eculizumab_outpt" = "eculizumab_events",
-    # "ivig" = "ivig_events",
-    # "ceftaroline" = "antibiotics_events",
-    # "ceftazidime-avibactam" = "antibiotics_events",
-    # "ceftolozane-tazobactam" = "antibiotics_events",
-    # "DAPTOmycin" = "antibiotics_events",
-    # "ertapenem" = "antibiotics_events",
+    "isoproterenol" = "isoproterenol_events",
+    "ivig" = "ivig_events",
+    # "pegfilgrastim" = "pegfilgrastim_events",
+    "sugammadex" = "sug-neo_events",
+    "ceftaroline" = "antibiotics_events",
+    "ceftazidime-avibactam" = "antibiotics_events",
+    "ceftolozane-tazobactam" = "antibiotics_events",
+    "DAPTOmycin" = "antibiotics_events",
+    "ertapenem" = "antibiotics_events",
     "meropenem-vaborbactam" = "antibiotics_events"
 )
 
@@ -145,86 +177,9 @@ l <- map2(names(meds), meds, run_forecast, h = 12, unit = "month")
 names(l) <- names(meds)
 openxlsx::write.xlsx(l, "data/final/forecast_monthly.xlsx")
 
-l <- map2(names(meds), meds, run_forecast, h = 366, mod = "prophet")
-names(l) <- names(meds)
-openxlsx::write.xlsx(l, "data/final/forecast_prophet.xlsx")
-
-
-# acetaminophen ----------------------------------------
-dir_data <- "data/tidy/acetaminophen"
-
-data_apap_events <- get_data(dir_data, "apap_events") %>%
-    distinct()
-# data_apap_orders <- get_data(dir_data, "apap_orders")
-
-df_apap <- data_apap_events %>%
-    filter(
-        facility_event %in% campus,
-        # clinical_event_datetime >= mdy("4/1/2017"),
-        clinical_event_datetime < rollback(now("US/Central"), TRUE, FALSE)
-    ) %>%
-    make_df()
-
-df_daily <- data_apap_events %>%
-    prep_df()
-
-ts_daily <- tk_ts(df_daily, silent = TRUE)
-acf(ts_daily)
-pacf(ts_daily)
-
-fit <- auto.arima(
-    ts_daily,
-    seasonal = FALSE,
-    stepwise = FALSE,
-    approximation = FALSE,
-    lambda = "auto",
-    biasadj = TRUE
-)
-summary(fit)
-
-f <- forecast(fit, h = 366)
-plot(f)
-s <- sw_sweep(f, timetk_idx = TRUE)
-
-df_daily$cap <- max(df_daily$y) * 1.2
-df_daily$floor <- min(df_daily$y) * 0.8
-
-m <- prophet(df_daily, growth = "logistic")
-future <- make_future_dataframe(m, periods = 366)
-future$cap <- max(df_daily$y) * 1.2
-future$floor <- min(df_daily$y) * 0.8
-forecast <- predict(m, future)
-plot(m, forecast)
-
-
-ts_apap <- tk_ts(df_apap)
-fcast_apap <- make_forecast(ts_apap)
-
-ppt_apap <- fcast_apap %>%
-    select(index, key, n) %>%
-    spread(key, n) %>%
-    mutate_at("index", floor_date, unit = "month") %>%
-    mutate_at("Forecast", round, digits = 0)
-
-# ivig -------------------------------------------------
-
-dir_data <- "data/tidy/ivig"
-data_ivig_events <- get_data(dir_data, "ivig_events")
-# data_ivig_orders <- get_data(dir_data, "ivig_orders")
-
-df_ivig <- data_ivig_events %>%
-    filter(facility %in% campus) %>%
-    make_df()
-
-ts_ivig <- tk_ts(df_ivig)
-fcast_ivig <- make_forecast(ts_ivig)
-
-ppt_ivig <- fcast_ivig %>%
-    select(index, key, n) %>%
-    spread(key, n) %>%
-    mutate_at("index", floor_date, unit = "month") %>%
-    mutate_at("Forecast", round, digits = 0)
-
+# p <- map2(names(meds), meds, run_forecast, h = 366, mod = "prophet")
+# names(p) <- names(meds)
+# openxlsx::write.xlsx(p, "data/final/forecast_prophet.xlsx")
 
 # python -----------------------------------------------
 
@@ -233,11 +188,10 @@ use_condaenv("med_tracking")
 pptx <- import("pptx")
 source_python("src/pptx_slides.py")
 
-pd <- import("pandas")
-
 prs <- pptx$Presentation()
-add_forecast_slide(prs, df, "acetaminophen")
-add_forecast_slide(prs, ppt_ivig, "IVIG")
+
+walk2(l, names(l), function(x, y) add_forecast_slide(prs, x, y))
+
 prs$save("doc/py_from_r.pptx")
 
 
