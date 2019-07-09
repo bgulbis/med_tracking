@@ -32,27 +32,38 @@ get_data <- function(path, pattern, col_types = NULL) {
         dplyr::distinct()
 }
 
-prep_df <- function(df, ...) {
+prep_df <- function(df, unit = "day", ...) {
     cnt <- rlang::enquos(...)
+    ds <- rlang::sym("ds")
+    event_datetime <- rlang::sym("event_datetime")
+    facility <- rlang::sym("facility")
     
-    df %>%
+    x <- df %>%
         dplyr::select(
-            event_datetime = tidyselect::matches(
+            !!"event_datetime" := tidyselect::matches(
                 "clinical_event_datetime|order_datetime"
             ),
-            facility = tidyselect::starts_with("facility")
+            !!"facility" := tidyselect::starts_with("facility")
         ) %>%
-        dplyr::mutate(ds = lubridate::as_date(event_datetime)) %>%
+        dplyr::mutate(!!"ds" := lubridate::as_date(!!event_datetime)) %>%
         dplyr::filter(
-            facility %in% campus,
-            event_datetime < lubridate::rollback(
+            !!facility %in% campus,
+            !!event_datetime < lubridate::rollback(
                 lubridate::now("US/Central"), 
                 TRUE, 
                 FALSE
             )
         ) %>%
-        dplyr::arrange(ds) %>%
-        dplyr::count(ds, !!!cnt, name = "y")
+        dplyr::arrange(!!ds)
+    
+    if (unit != "day") {
+        x %>%
+            mutate_at("ds", lubridate::floor_date, unit = unit) %>%
+            dplyr::count(!!ds, !!!cnt, name = "y")
+    } else {
+        x %>%
+            dplyr::count(!!ds, !!!cnt, name = "y")
+    }
 }
 
 fcast_arima <- function(ts, h = 12, lambda = "auto") {
@@ -64,16 +75,27 @@ fcast_arima <- function(ts, h = 12, lambda = "auto") {
         lambda = lambda,
         biasadj = TRUE
     ) %>%
-        forecast::forecast(h) %>%
-        sweep::sw_sweep(timetk_idx = TRUE) 
+        forecast::forecast(h) 
 }
 
-run_forecast <- function(x, pattern, h) {
+run_forecast <- function(x, pattern, h, mod = "arima", unit = "month") {
     fx <- function(df, h) {
-        df %>%
-            prep_df() %>%
-            timetk::tk_ts(silent = TRUE) %>%
-            fcast_arima(h) 
+        if (mod == "arima") {
+            df %>%
+                prep_df(unit) %>%
+                timetk::tk_ts(silent = TRUE) %>%
+                fcast_arima(h) %>%
+                sweep::sw_sweep(timetk_idx = TRUE) 
+        } else if (mod == "prophet") {
+            prep <- prep_df(df, unit = "day") 
+            prep$cap <- max(prep$y) * 1.2
+            prep$floor <- min(prep$y) * 0.8
+            mod <- prophet(prep, growth = "logistic")
+            future <- make_future_dataframe(mod, periods = h)
+            future$cap <- max(prep$y) * 1.2
+            future$floor <- min(prep$y) * 0.8
+            predict(mod, future)
+        }
     }
     
     abx <- c(
@@ -94,8 +116,8 @@ run_forecast <- function(x, pattern, h) {
             dplyr::filter(!!rlang::sym("encounter_type") == x) %>%
             fx(h)
     } else if (x == "pegfilgrastim") {
-        get_data("data/tidy/eculizumab", pattern) %>%
-            dplyr::filter(!!rlang::sym("encounter_type") == x) %>%
+        get_data(paste0("data/tidy/", x), pattern) %>%
+            dplyr::filter(!!rlang::sym("encounter_type") == "Inpatient") %>%
             fx(h)
         
     } else {
@@ -108,20 +130,25 @@ meds <- c(
     "acetaminophen" = "apap_events",
     "bupivacaine-liposome" = "bupivacaine-liposome_orders",
     "calcitonin" = "calcitonin_events",
-    "eculizumab_inpt" = "eculizumab_events",
-    "eculizumab_outpt" = "eculizumab_events",
-    "ivig" = "ivig_events",
-    "ceftaroline" = "antibiotics_events",
-    "ceftazidime-avibactam" = "antibiotics_events",
-    "ceftolozane-tazobactam" = "antibiotics_events",
-    "DAPTOmycin" = "antibiotics_events",
-    "ertapenem" = "antibiotics_events",
+    # "eculizumab_inpt" = "eculizumab_events",
+    # "eculizumab_outpt" = "eculizumab_events",
+    # "ivig" = "ivig_events",
+    # "ceftaroline" = "antibiotics_events",
+    # "ceftazidime-avibactam" = "antibiotics_events",
+    # "ceftolozane-tazobactam" = "antibiotics_events",
+    # "DAPTOmycin" = "antibiotics_events",
+    # "ertapenem" = "antibiotics_events",
     "meropenem-vaborbactam" = "antibiotics_events"
 )
 
-l <- map2(names(meds), meds, run_forecast, h = 366)
+l <- map2(names(meds), meds, run_forecast, h = 12, unit = "month")
 names(l) <- names(meds)
-openxlsx::write.xlsx(l, "data/final/forecast_daily.xlsx")
+openxlsx::write.xlsx(l, "data/final/forecast_monthly.xlsx")
+
+l <- map2(names(meds), meds, run_forecast, h = 366, mod = "prophet")
+names(l) <- names(meds)
+openxlsx::write.xlsx(l, "data/final/forecast_prophet.xlsx")
+
 
 # acetaminophen ----------------------------------------
 dir_data <- "data/tidy/acetaminophen"
