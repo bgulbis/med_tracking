@@ -194,4 +194,7 @@ walk2(l, names(l), function(x, y) add_forecast_slide(prs, x, y))
 
 prs$save("doc/py_from_r.pptx")
 
-
+pd <- import("pandas")
+x <- l[[1]] %>% column_to_rownames("index")
+df_pd <- pd$DataFrame(x)
+add_forecast_slide(prs, df_pd, "apap")
