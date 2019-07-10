@@ -66,7 +66,7 @@ prep_df <- function(df, unit = "day", ...) {
     }
 }
 
-fcast_arima <- function(ts, h = 12, lambda = "auto") {
+model_arima <- function(ts, lambda = "auto") {
     forecast::auto.arima(
         ts, 
         seasonal = FALSE,
@@ -74,8 +74,7 @@ fcast_arima <- function(ts, h = 12, lambda = "auto") {
         approximation = FALSE,
         lambda = lambda,
         biasadj = TRUE
-    ) %>%
-        forecast::forecast(h) 
+    ) 
 }
 
 prep_pptx <- function(df) {
@@ -106,7 +105,8 @@ run_forecast <- function(x, pattern, h, mod = "arima", unit = "month") {
             df %>%
                 prep_df(unit) %>%
                 timetk::tk_ts(silent = TRUE) %>%
-                fcast_arima(h) %>%
+                model_arima() %>%
+                forecast::forecast(h) %>%
                 sweep::sw_sweep(timetk_idx = TRUE) %>%
                 prep_pptx()
             
@@ -180,6 +180,19 @@ openxlsx::write.xlsx(l, "data/final/forecast_monthly.xlsx")
 # p <- map2(names(meds), meds, run_forecast, h = 366, mod = "prophet")
 # names(p) <- names(meds)
 # openxlsx::write.xlsx(p, "data/final/forecast_prophet.xlsx")
+
+
+mod <- get_data("data/tidy/acetaminophen", "apap_events") %>%
+    prep_df("month") %>%
+    timetk::tk_ts(silent = TRUE) %>%
+    model_arima() 
+
+summary(mod)
+
+f <- forecast(mod, h = 12) %>%
+    sw_sweep(timetk_idx = TRUE)
+
+f
 
 # python -----------------------------------------------
 
