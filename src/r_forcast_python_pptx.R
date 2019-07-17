@@ -1,3 +1,4 @@
+library(mbohelpr)
 library(tidyverse)
 library(lubridate)
 library(forecast)
@@ -15,22 +16,6 @@ campus <- c(
     "HH Rehab",
     "HH Trans Care"
 )
-
-get_data <- function(path, pattern, col_types = NULL) {
-    f <- list.files(path, pattern, full.names = TRUE)
-    
-    n <- f %>% 
-        purrr::map_int(~ nrow(data.table::fread(.x, select = 1L))) 
-    
-    f[n > 0] %>%
-        purrr::map_df(
-            readr::read_csv,
-            locale = tz_locale,
-            col_types = col_types
-        ) %>%
-        dplyr::rename_all(stringr::str_to_lower) %>%
-        dplyr::distinct()
-}
 
 prep_df <- function(df, unit = "day", ...) {
     cnt <- rlang::enquos(...)
@@ -189,10 +174,64 @@ mod <- get_data("data/tidy/acetaminophen", "apap_events") %>%
 
 summary(mod)
 
-f <- forecast(mod, h = 12) %>%
-    sw_sweep(timetk_idx = TRUE)
+f <- forecast(mod, h = 12) 
+    # sw_sweep(timetk_idx = TRUE)
 
-f
+f$mean
+
+# test -------------------------------------------------
+
+df <- get_data("data/tidy", "acetaminophen-iv") %>%
+    group_by(ds) %>%
+    summarize_at("y", sum, na.rm = TRUE) %>%
+    arrange(ds)
+
+ts_df <- tk_ts(df, silent = TRUE)
+
+mod <- auto.arima(
+    ts_df, 
+    # seasonal = FALSE,
+    stepwise = FALSE,
+    approximation = FALSE,
+    lambda = "auto",
+    biasadj = TRUE,
+    # trace = TRUE,
+    max.order = 10
+) 
+summary(mod)
+
+f <- forecast(mod, h = 366)
+plot(f)
+
+m <- arima(ts_df, order = c(5, 1, 5))
+summary(m)
+f2 <- forecast(m, h = 366)
+plot(f2)
+
+abs(polyroot(c(1, -coef(m)[c("ar1", "ar2", "ar3", "ar4", "ar5")])))
+abs(polyroot(c(1, -coef(m)[c("ma1", "ma2", "ma3", "ma4", "ma5")])))
+
+df_month <- df %>%
+    mutate(ds = floor_date(ds, unit = "months")) %>%
+    group_by(ds) %>%
+    summarize_at("y", sum, na.rm = TRUE)
+
+ts_month <- tk_ts(df_month, silent = TRUE)
+
+m_month <- auto.arima(
+    ts_month, 
+    stepwise = FALSE,
+    approximation = FALSE,
+    lambda = "auto",
+    biasadj = TRUE,
+    # trace = TRUE,
+    max.order = 10
+) 
+summary(m_month)
+
+f3 <- forecast(m_month, h = 12)
+
+plot(f3)
 
 # python -----------------------------------------------
 
