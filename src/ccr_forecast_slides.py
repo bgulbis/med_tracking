@@ -3,10 +3,8 @@ import numpy as np
 import pandas as pd
 
 from datetime import date, datetime
-from os import listdir
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
-# from pptx.dml.color import RGBColor
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_DATA_LABEL_POSITION, XL_MARKER_STYLE, XL_TICK_MARK
 from pptx.enum.dml import MSO_LINE_DASH_STYLE, MSO_THEME_COLOR
 from pptx.util import Inches, Pt
@@ -18,13 +16,11 @@ pandas2ri.activate()
 forecast = importr('forecast')
 forecast.auto_arima = SignatureTranslatedFunction(forecast.auto_arima, init_prm_translate = {'lambda_': 'lambda'})
 
-
 def read_data(file):
     filepaths = glob.glob("../data/tidy/" + file + "/" + file + "_daily_doses*.csv")
     df = pd.concat(map(lambda x: pd.read_csv(x, index_col=0, parse_dates=True), filepaths), sort=False)
     df.sort_index(inplace=True)
     return df
-
 
 def make_forecast(df, h=12):
     f_m = forecast.auto_arima(
@@ -71,12 +67,15 @@ def add_forecast_slide(p, df, med):
     blank_slide_layout = p.slide_layouts[6]
     slide = p.slides.add_slide(blank_slide_layout)
 
+    num_fmt = "#,##0"
     chart_data = CategoryChartData()
     chart_data.categories = df.index
-    chart_data.add_series("Actual", df["Actual"])
-    chart_data.add_series("Forecast", df["Forecast"])
-    chart_data.add_series("Upper", df["Upper"])
-    chart_data.add_series("Lower", df["Lower"])
+    chart_data.categories.number_format = "mmmm yyyy"
+
+    chart_data.add_series("Actual", df["Actual"], num_fmt)
+    chart_data.add_series("Forecast", df["Forecast"], num_fmt)
+    chart_data.add_series("Upper", df["Upper"], num_fmt)
+    chart_data.add_series("Lower", df["Lower"], num_fmt)
 
     # use this if want to show separate use on inpt/outpt basis
     #     if "Outpatient" in df.columns:
@@ -241,7 +240,6 @@ def make_slides(meds, n=12):
 
     for i in meds:
         df = make_forecast_df(i)
-#         start_month = (datetime.now() + pd.DateOffset(months=-24)).strftime('%Y-%m')
         add_forecast_slide(prs, df, i)
 
     return prs

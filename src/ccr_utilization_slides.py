@@ -2,13 +2,11 @@ import glob
 import numpy as np
 import pandas as pd
 
-from datetime import date, datetime
-from os import listdir
+from datetime import date
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
-# from pptx.dml.color import RGBColor
-from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_DATA_LABEL_POSITION, XL_MARKER_STYLE, XL_TICK_MARK
-from pptx.enum.dml import MSO_LINE_DASH_STYLE, MSO_THEME_COLOR
+from pptx.enum.chart import XL_CHART_TYPE, XL_DATA_LABEL_POSITION
+from pptx.enum.dml import MSO_THEME_COLOR
 from pptx.util import Inches, Pt
 
 def read_data(file):
@@ -31,9 +29,11 @@ def add_utilization_slide(p, df, med):
 
     chart_data = CategoryChartData()
     chart_data.categories = df.index
+    # chart_data.categories.number_format = "mmmm"
 
-    for i in range(0, len(df.columns)):
-        chart_data.add_series(df.columns[i], df.iloc[:, i])
+    # for i in range(0, len(df.columns)):
+    for i in range(len(df.columns) - 1, -1, -1):
+        chart_data.add_series(df.columns[i], df.iloc[:, i], "#,##0")
 
     x, y, cx, cy = Inches(1), Inches(1), Inches(8), Inches(6)
     chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data).chart
@@ -72,35 +72,31 @@ def format_graph(chart, med, font_nm=None, ax_bright=0.5):
     chart.chart_title.text_frame.paragraphs[0].font.color.brightness = 0.25
 
     chart.has_legend = False
-    # chart.legend.include_in_layout = False
-    # chart.legend.position = XL_LEGEND_POSITION.TOP
 
-    # format line for current fiscal year
-    col_cur = MSO_THEME_COLOR.TEXT_1
-    chart.series[-1].format.line.width = Pt(3.5)
-    chart.series[-1].format.line.color.theme_color = col_cur
-    chart.series[-1].data_labels.font.name = font_nm
-    chart.series[-1].data_labels.font.size = Pt(16)
-    chart.series[-1].data_labels.font.bold = False
-    chart.series[-1].data_labels.font.color.theme_color = col_cur
-
-    col_prev = [MSO_THEME_COLOR.ACCENT_1,
+    col_list = [MSO_THEME_COLOR.TEXT_1,
+                MSO_THEME_COLOR.ACCENT_1,
                 MSO_THEME_COLOR.ACCENT_2,
                 MSO_THEME_COLOR.ACCENT_3,
                 MSO_THEME_COLOR.ACCENT_4]
-    brght_prev = 0.8
+    brght_prev = 0.6
 
-    if len(chart.series) > 1:
-        for i in range(0, len(chart.series) - 1):
-            chart.series[i].format.line.width = Pt(2.5)
-            chart.series[i].format.line.color.theme_color = col_prev[i]
+    for i in range(0, len(chart.series)):
+        if i == 0:
+            w = Pt(3.5)
+        else:
+            w = Pt(2.25)
+
+        chart.series[i].format.line.width = w
+        chart.series[i].format.line.color.theme_color = col_list[i]
+        chart.series[i].data_labels.font.name = font_nm
+        chart.series[i].data_labels.font.size = Pt(16)
+        chart.series[i].data_labels.font.bold = False
+        chart.series[i].data_labels.font.color.theme_color = col_list[i]
+        chart.series[i].data_labels.position = XL_DATA_LABEL_POSITION.RIGHT
+
+        if i >= 1:
             chart.series[i].format.line.color.brightness = brght_prev
-            chart.series[i].data_labels.font.name = font_nm
-            chart.series[i].data_labels.font.size = Pt(16)
-            chart.series[i].data_labels.font.bold = False
-            chart.series[i].data_labels.font.color.theme_color = col_prev[i]
             chart.series[i].data_labels.font.color.brightness = brght_prev
-            chart.series[i].data_labels.position = XL_DATA_LABEL_POSITION.RIGHT
 
     return chart
 
@@ -130,8 +126,8 @@ def format_axis_tick_labels(axis, font_nm, ax_bright, num_fmt):
     axis.tick_labels.number_format = num_fmt
     return axis
 
-def make_slides(meds, n=12):
-    prs = Presentation()
+def make_slides(meds):
+    prs = Presentation("../doc/template.pptx")
     # title slide
     title_slide_layout = prs.slide_layouts[0]
     slide = prs.slides.add_slide(title_slide_layout)
@@ -167,5 +163,4 @@ meds = ["acetaminophen-iv",
         "meropenem-vaborbactam"]
 
 prs = make_slides(meds)
-# save_month = (datetime.now() + pd.DateOffset(months=-1)).strftime('%Y-%m')
 prs.save('../report/utilization/python_utilization_slides.pptx')
