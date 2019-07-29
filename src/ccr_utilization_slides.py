@@ -1,13 +1,10 @@
 import glob
-import numpy as np
 import pandas as pd
 
-from datetime import date
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
-from pptx.enum.chart import XL_CHART_TYPE, XL_DATA_LABEL_POSITION
-from pptx.enum.dml import MSO_THEME_COLOR
-from pptx.util import Inches, Pt
+from pptx.enum.chart import XL_CHART_TYPE
+from pptx.util import Inches
 
 def read_data(file):
     filepaths = glob.glob("../data/tidy/" + file + "/" + file + "_daily_doses*.csv")
@@ -30,7 +27,6 @@ def add_utilization_slide(p, df, med):
     chart_data = CategoryChartData()
     chart_data.categories = df.index
 
-    # for i in range(0, len(df.columns)):
     for i in range(len(df.columns) - 1, -1, -1):
         chart_data.add_series(df.columns[i], df.iloc[:, i])
 
@@ -55,24 +51,6 @@ def add_utilization_slide(p, df, med):
 
     return p
 
-def make_slides(meds):
-    prs = Presentation("../doc/template.pptx")
-    # title slide
-    title_slide_layout = prs.slide_layouts[0]
-    slide = prs.slides.add_slide(title_slide_layout)
-    title = slide.shapes.title
-    subtitle = slide.placeholders[1]
-    title.text = "Utilization of Target Medications"
-    data_end = read_data(meds[0]).index[-1].strftime('%B %Y')
-    subtitle.text = "Data through: " + data_end + "\nBrian Gulbis, PharmD, BCPS"
-
-    for i in meds:
-        df = read_data(i)
-        df = prep_df(df)
-        add_utilization_slide(prs, df, i)
-
-    return prs
-
 meds = ["acetaminophen-iv",
         "albumin",
         "sugammadex",
@@ -91,8 +69,6 @@ meds = ["acetaminophen-iv",
         "ertapenem",
         "meropenem-vaborbactam"]
 
-# prs = make_slides(meds)
-
 prs = Presentation("../doc/template.pptx")
 # title slide
 title_slide_layout = prs.slide_layouts[0]
@@ -108,4 +84,4 @@ for i in meds:
     df = prep_df(df)
     add_utilization_slide(prs, df, i)
 
-prs.save('../report/utilization/python_utilization_slides_no-formatting.pptx')
+prs.save('../report/utilization/python_utilization_slides.pptx')
