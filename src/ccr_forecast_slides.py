@@ -2,12 +2,11 @@ import glob
 import numpy as np
 import pandas as pd
 
-from datetime import date, datetime
+from datetime import datetime
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
-from pptx.enum.chart import XL_CHART_TYPE, XL_DATA_LABEL_POSITION, XL_MARKER_STYLE
-from pptx.enum.dml import MSO_LINE_DASH_STYLE, MSO_THEME_COLOR
-from pptx.util import Inches, Pt
+from pptx.enum.chart import XL_CHART_TYPE
+from pptx.util import Inches
 from rpy2.robjects import pandas2ri
 from rpy2.robjects.packages import importr
 from rpy2.robjects.functions import SignatureTranslatedFunction
@@ -76,7 +75,7 @@ def add_forecast_slide(p, df, med):
     chart_data.add_series("Upper", df["Upper"])
     chart_data.add_series("Lower", df["Lower"])
 
-    x, y, cx, cy = Inches(1), Inches(1), Inches(8), Inches(6)
+    x, y, cx, cy = Inches(0.5), Inches(1), Inches(9), Inches(6)
     chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data).chart
 
     if med == "ivig":

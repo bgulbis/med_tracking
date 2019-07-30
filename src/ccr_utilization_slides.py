@@ -30,7 +30,7 @@ def add_utilization_slide(p, df, med):
     for i in range(len(df.columns) - 1, -1, -1):
         chart_data.add_series(df.columns[i], df.iloc[:, i])
 
-    x, y, cx, cy = Inches(1), Inches(1), Inches(8), Inches(6)
+    x, y, cx, cy = Inches(0.5), Inches(1), Inches(9), Inches(6)
     chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data).chart
 
     if med == "ivig":
