@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import date, datetime
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
-from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_DATA_LABEL_POSITION, XL_MARKER_STYLE, XL_TICK_MARK
+from pptx.enum.chart import XL_CHART_TYPE, XL_DATA_LABEL_POSITION, XL_MARKER_STYLE
 from pptx.enum.dml import MSO_LINE_DASH_STYLE, MSO_THEME_COLOR
 from pptx.util import Inches, Pt
 from rpy2.robjects import pandas2ri
@@ -67,24 +67,32 @@ def add_forecast_slide(p, df, med):
     blank_slide_layout = p.slide_layouts[6]
     slide = p.slides.add_slide(blank_slide_layout)
 
-    num_fmt = "#,##0"
+    # num_fmt = "#,##0"
     chart_data = CategoryChartData()
     chart_data.categories = df.index
-    chart_data.categories.number_format = "mmmm yyyy"
 
-    chart_data.add_series("Actual", df["Actual"], num_fmt)
-    chart_data.add_series("Forecast", df["Forecast"], num_fmt)
-    chart_data.add_series("Upper", df["Upper"], num_fmt)
-    chart_data.add_series("Lower", df["Lower"], num_fmt)
-
-    # use this if want to show separate use on inpt/outpt basis
-    #     if "Outpatient" in df.columns:
-    #         chart_data.add_series("Outpatient", df["Outpatient"])
-    #         chart_data.add_series("Inpatient", df["Inpatient"])
+    chart_data.add_series("Actual", df["Actual"])
+    chart_data.add_series("Forecast", df["Forecast"])
+    chart_data.add_series("Upper", df["Upper"])
+    chart_data.add_series("Lower", df["Lower"])
 
     x, y, cx, cy = Inches(1), Inches(1), Inches(8), Inches(6)
     chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data).chart
-    chart = format_graph(chart, med)
+
+    if med == "ivig":
+        med_title = med.upper()
+    elif med == "acetaminophen-iv":
+        med_title = "Acetaminophen IV"
+    elif med == "bupivacaine-liposomal":
+        med_title = "Bupivacaine (liposomal)"
+    elif med == "levothyroxine-iv":
+        med_title = "Levothyroxine IV"
+    else:
+        med_title = med.title()
+
+    chart.chart_title.text_frame.text = med_title + " forecast"
+    chart.value_axis.axis_title.text_frame.text = "Doses per month"
+
     return p
 
 def format_graph(chart, med, font_nm=None, ax_bright=0.5):
@@ -262,5 +270,19 @@ meds = ["acetaminophen-iv",
         "ertapenem",
         "meropenem-vaborbactam"]
 
-prs = make_slides(meds)
-prs.save('../report/utilization/python_forecast_slides.pptx')
+prs = Presentation("../doc/template.pptx")
+# title slide
+title_slide_layout = prs.slide_layouts[0]
+slide = prs.slides.add_slide(title_slide_layout)
+title = slide.shapes.title
+subtitle = slide.placeholders[1]
+title.text = "Forecast for Target Medications"
+fcast_start = datetime.now().strftime('%B %Y')
+fcast_end = (datetime.now() + pd.DateOffset(months=11)).strftime('%B %Y')
+subtitle.text = fcast_start + " to " + fcast_end + "\nBrian Gulbis, PharmD, BCPS"
+
+for i in meds:
+    df = make_forecast_df(i)
+    add_forecast_slide(prs, df, i)
+
+prs.save("../report/utilization/python_forecast_slides.pptx")
