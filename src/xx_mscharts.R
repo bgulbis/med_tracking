@@ -1,9 +1,7 @@
+library(mbohelpr)
 library(tidyverse)
 library(lubridate)
 library(officer)
-library(themebg)
-library(ggrepel)
-library(rvg)
 library(mschart)
 library(forecast)
 library(timetk)
@@ -19,21 +17,6 @@ campus <- c(
     "HH Rehab",
     "HH Trans Care"
 )
-
-get_data <- function(path, pattern, col_types = NULL) {
-    f <- list.files(path, pattern, full.names = TRUE)
-    
-    n <- f %>% 
-        purrr::map_int(~ nrow(data.table::fread(.x, select = 1L))) 
-    
-    f[n > 0] %>%
-        purrr::map_df(
-            readr::read_csv,
-            locale = tz_locale,
-            col_types = col_types
-        ) %>%
-        rename_all(stringr::str_to_lower)
-}
 
 make_df <- function(df, ...) {
     cnt <- enquos(...)
@@ -69,7 +52,7 @@ make_df <- function(df, ...) {
 }
 
 make_forecast <- function(ts, h = 12) {
-    forecast::auto.arima(ts, lambda = 0) %>%
+    forecast::auto.arima(ts, lambda = "auto") %>%
         forecast::forecast(h) %>%
         sweep::sw_sweep(timetk_idx = TRUE) %>%
         dplyr::mutate_at(
@@ -162,49 +145,48 @@ plot_forecast <- function(df) {
 
 dir_data <- "data/tidy/albumin"
 
-data_albumin_events <- get_data(dir_data, "albumin_events")
-# data_albumin_orders <- get_data(dir_data, "albumin_orders")
+data_albumin <- get_data(dir_data, "albumin") %>%
+    mutate(event_month = floor_date(event_date, "month")) %>%
+    group_by(event_month) %>%
+    summarize_at("doses", sum, na.rm = TRUE)
 
-df_albumin <- data_albumin_events %>%
-    filter(facility_event %in% campus) %>%
-    make_df()
+ts_albumin <- tk_ts(data_albumin, silent = TRUE)
+mod_albumin <- auto.arima(ts_albumin, lambda = "auto")
+fcast_albumin <- forecast(mod_albumin, 12) 
+swp_albumin <- sw_sweep(fcast_albumin, timetk_idx = TRUE)
+# fcast_albumin <- make_forecast(ts_albumin) 
 
-month_end <- max(df_albumin$med_date)
-
-ts_albumin <- tk_ts(df_albumin)
-
-fcast_albumin <- make_forecast(ts_albumin) 
-
-g_albumin <- plot_utilization(df_albumin)
-g_albumin_fcast <- plot_forecast(fcast_albumin)
+# g_albumin <- plot_utilization(df_albumin)
+# g_albumin_fcast <- plot_forecast(fcast_albumin)
 # g_albumin_fcast
 
-l <- df_albumin %>%
-    mutate_at("med_date", as_date) %>%
-    ms_linechart(x= "med_date", y = "n") %>%
-    chart_ax_x(num_fmt = "mmm") %>%
-    chart_data_labels(num_fmt = "0", position = "t", show_val = TRUE) %>% 
-    chart_labels(title = "Albumin utilization", xlab = "Month", ylab = "Doses") %>% 
-    chart_theme(
-        grid_major_line_x = fp_border(style = "none"),
-        grid_major_line_y = fp_border(style = "none"),
-        legend_position = "n"
-    )
+# l <- df_albumin %>%
+#     mutate_at("med_date", as_date) %>%
+#     ms_linechart(x= "med_date", y = "n") %>%
+#     chart_ax_x(num_fmt = "mmm") %>%
+#     chart_data_labels(num_fmt = "0", position = "t", show_val = TRUE) %>% 
+#     chart_labels(title = "Albumin utilization", xlab = "Month", ylab = "Doses") %>% 
+#     chart_theme(
+#         grid_major_line_x = fp_border(style = "none"),
+#         grid_major_line_y = fp_border(style = "none"),
+#         legend_position = "n"
+#     )
 
-l_fcast <- fcast_albumin %>%
+l_fcast <- swp_albumin %>%
     mutate_at("index", as_date) %>%
-    mutate_at("n", round, digits = 0) %>%
-    ms_linechart(x= "index", y = "n", group = "key") %>%
-    chart_ax_x(num_fmt = "mmm") %>%
+    # gather("key", "doses", lo.80:hi.95)
+    # mutate_at("n", round, digits = 0) %>%
+    ms_linechart(x= "index", y = "doses", group = "key") 
+    # chart_ax_x(num_fmt = "mmm") %>%
     # chart_data_labels(num_fmt = "0", position = "t", show_val = TRUE) %>% 
-    chart_labels(title = "Albumin forecast", xlab = "Month", ylab = "Doses") %>% 
+    # chart_labels(title = "Albumin forecast", xlab = "Month", ylab = "Doses per month") %>% 
     # chart_data_symbol(values = c(Actual = "none", Forecast = "circle")) %>%
-    chart_data_line_width(values = c(Actual = 3.75, Forecast = 2.25)) %>%
-    chart_theme(
-        grid_major_line_x = fp_border(style = "none"),
-        grid_major_line_y = fp_border(style = "none"),
-        legend_position = "n"
-    )
+    # chart_data_line_width(values = c(Actual = 3.5, Forecast = 2.25)) %>%
+    # chart_theme(
+    #     grid_major_line_x = fp_border(style = "none"),
+    #     grid_major_line_y = fp_border(style = "none"),
+    #     legend_position = "n"
+    # )
 
 
 # powerpoint -------------------------------------------
@@ -215,14 +197,14 @@ title_size <- fp_text(font.size = 32)
 
 # layout_properties(read_pptx(), layout = "Title Slide", master = slide_master)
 
-read_pptx() %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Albumin", location = ph_location_type("title")) %>%
-    ph_with_chart(l, type = "body") %>%
-    add_slide(layout = slide_layout, master = slide_master) %>%
-    ph_with("Albumin forecast", location = ph_location_type("title")) %>%
-    ph_with_chart(l_fcast, type = "body") %>%
-    print(target = "report/mscharts.pptx")
+read_pptx(path = "doc/template.pptx") %>%
+    # add_slide(layout = slide_layout, master = slide_master) %>%
+    # ph_with("Albumin", location = ph_location_type("title")) %>%
+    # ph_with_chart(l, type = "body") %>%
+    add_slide(layout = "Blank", master = slide_master) %>%
+    # ph_with("Albumin forecast", location = ph_location_type("title")) %>%
+    ph_with_chart_at(l_fcast, 1, 1, 8, 6) %>%
+    print(target = "doc/mscharts.pptx")
 
 # read_pptx() %>%
 #     add_slide(layout = slide_layout, master = slide_master) %>%
