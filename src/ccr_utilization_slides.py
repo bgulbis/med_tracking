@@ -85,4 +85,4 @@ for i in meds:
     df = prep_df(df)
     add_utilization_slide(prs, df, i)
 
-prs.save('../report/utilization/python_utilization_slides.pptx')
+prs.save("../report/utilization/python_utilization_slides.pptx")
