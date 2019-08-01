@@ -16,7 +16,7 @@ def prep_df(df):
     df = df.resample("MS").sum()
     df["FY"] = "FY" + (df.index + pd.DateOffset(months=6)).strftime('%y')
     df["idx"] = pd.to_datetime("2019-" + (df.index + pd.DateOffset(months=-6)).strftime('%m-%d')) + pd.DateOffset(months=6)
-    df_pvt = df['2015-07-01':].pivot(index="idx", columns="FY", values="DOSES").replace({pd.np.nan: None})
+    df_pvt = df['2016-07-01':].pivot(index="idx", columns="FY", values="DOSES").replace({pd.np.nan: None})
 
     return df_pvt
 
