@@ -34,15 +34,23 @@ def make_forecast(df, h=12):
     fc_m = forecast.forecast(f_m, h=h)
     return fc_m
 
-def make_forecast_df(med, h=12, resamp="MS"):
-    df = read_data(med)
-    df_encntr = df.copy()
+def make_forecast_df(med, h=12, resamp="MS", sep="all"):
+    inpt = ["Inpatient", "Observation"]
 
-    if "ENCOUNTER_TYPE" in df_encntr.columns:
-        df_encntr["Inpatient"] = df["ENCOUNTER_TYPE"].str.contains("inpatient|observation", case=False)
-        df_pvt = df_encntr.pivot_table(values="DOSES", index="EVENT_DATE", columns="Inpatient", aggfunc=np.sum)
-        df_pvt = df_pvt.resample("MS").sum()
-        df_pvt.columns = ["Outpatient", "Inpatient"]
+    df = read_data(med)
+    
+    if sep == "inpt":
+        df = df.loc[df["ENCOUNTER_TYPE"].isin(inpt)]
+    elif sep == "outpt":
+        df = df.loc[~df["ENCOUNTER_TYPE"].isin(inpt)]
+    
+    # df_encntr = df.copy()
+    # 
+    # if "ENCOUNTER_TYPE" in df_encntr.columns:
+    #     df_encntr["Inpatient"] = df["ENCOUNTER_TYPE"].str.contains("inpatient|observation", case=False)
+    #     df_pvt = df_encntr.pivot_table(values="DOSES", index="EVENT_DATE", columns="Inpatient", aggfunc=np.sum)
+    #     df_pvt = df_pvt.resample("MS").sum()
+    #     df_pvt.columns = ["Outpatient", "Inpatient"]
 
     df = df.resample(resamp).sum()
     fc = make_forecast(df, h)
@@ -53,16 +61,16 @@ def make_forecast_df(med, h=12, resamp="MS"):
     df_fc = pd.concat([yhat, lwr, upr], axis=1, sort=False)
     df.columns = ["Actual"]
 
-    if "ENCOUNTER_TYPE" in df_encntr.columns:
-        x = [df, df_fc, df_pvt]
-    else:
-        x = [df, df_fc]
+    # if "ENCOUNTER_TYPE" in df_encntr.columns:
+    #     x = [df, df_fc, df_pvt]
+    # else:
+    x = [df, df_fc]
 
     df_combined = pd.concat(x, axis=1).replace({pd.np.nan: None})
 
     return df_combined
 
-def add_forecast_slide(p, df, med):
+def add_forecast_slide(p, df, med, title_post=""):
     blank_slide_layout = p.slide_layouts[6]
     slide = p.slides.add_slide(blank_slide_layout)
 
@@ -89,7 +97,7 @@ def add_forecast_slide(p, df, med):
     else:
         med_title = med.title()
 
-    chart.chart_title.text_frame.text = med_title + " forecast"
+    chart.chart_title.text_frame.text = med_title + " forecast" + title_post
     chart.value_axis.axis_title.text_frame.text = "Doses per month"
 
     return p
@@ -142,7 +150,15 @@ fcast_end = (datetime.now() + pd.DateOffset(months=11)).strftime('%B %Y')
 subtitle.text = fcast_start + " to " + fcast_end + "\nBrian Gulbis, PharmD, BCPS"
 
 for i in meds:
-    df = make_forecast_df(i)
-    add_forecast_slide(prs, df, i)
+    if i == "ivig":
+        df = make_forecast_df(i, sep="inpt")
+        add_forecast_slide(prs, df, i, " (inpatient)")
+
+        df = make_forecast_df(i, sep="outpt")
+        add_forecast_slide(prs, df, i, " (outpatient)")
+        
+    else:
+        df = make_forecast_df(i)
+        add_forecast_slide(prs, df, i)
 
 prs.save("../report/utilization/python_forecast_slides.pptx")

@@ -20,7 +20,7 @@ def prep_df(df):
 
     return df_pvt
 
-def add_utilization_slide(p, df, med):
+def add_utilization_slide(p, df, med, title_post=""):
     blank_slide_layout = p.slide_layouts[6]
     slide = p.slides.add_slide(blank_slide_layout)
 
@@ -45,7 +45,7 @@ def add_utilization_slide(p, df, med):
     else:
         med_title = med.title()
 
-    chart.chart_title.text_frame.text = med_title + " utilization"
+    chart.chart_title.text_frame.text = med_title + " utilization" + title_post
     # chart.category_axis.axis_title.text_frame.text = "Month"
     chart.value_axis.has_title = True
     chart.value_axis.axis_title.text_frame.text = "Doses per month"
@@ -82,7 +82,19 @@ subtitle.text = "Data through: " + data_end + "\nBrian Gulbis, PharmD, BCPS"
 
 for i in meds:
     df = read_data(i)
-    df = prep_df(df)
-    add_utilization_slide(prs, df, i)
+    
+    if i == "ivig":
+        inpt = ["Inpatient", "Observation"]
+        df_inpt = df.loc[df["ENCOUNTER_TYPE"].isin(inpt)]
+        df_inpt = prep_df(df_inpt)
+        add_utilization_slide(prs, df_inpt, i, " (inpatient)")
+
+        df_outpt = df.loc[~df["ENCOUNTER_TYPE"].isin(inpt)]
+        df_outpt = prep_df(df_outpt)
+        add_utilization_slide(prs, df_outpt, i, " (outpatient)")
+        
+    else:
+        df = prep_df(df)
+        add_utilization_slide(prs, df, i)
 
 prs.save("../report/utilization/python_utilization_slides.pptx")
