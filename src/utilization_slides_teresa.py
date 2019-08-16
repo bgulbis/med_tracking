@@ -8,12 +8,6 @@ from pptx.chart.data import CategoryChartData
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches
 
-def read_data(file):
-    filepaths = glob.glob("../data/tidy/" + file + "/" + file + "_monthly_*.csv")
-    df = pd.concat(map(lambda x: pd.read_csv(x, index_col=0, parse_dates=True), filepaths), sort=False)
-    df.sort_index(inplace=True)
-    return df
-
 def prep_df(df, doses=True, encntr_type=None, facility=None, nurse_units=None):
     df['FY'] = 'FY' + (df.index + pd.DateOffset(months=6)).strftime('%y')
     df['MONTH'] = pd.to_datetime('2018-' + (df.index - pd.DateOffset(months=6)).strftime('%m-%d')) + pd.DateOffset(months=6)
@@ -21,6 +15,8 @@ def prep_df(df, doses=True, encntr_type=None, facility=None, nurse_units=None):
     when = df.index[-1]
     date_cut = date(day=1, month=7, year=(when + pd.DateOffset(months=6)).year) - pd.DateOffset(years=4)
     df = df.loc[date_cut:]
+    
+    df = df.loc[df['NURSE_UNIT'] == nurse_unit]
     
     if encntr_type is not None:
         if type(encntr_type) is str:
@@ -88,6 +84,7 @@ meds = ["abciximab",
         "alteplase",
         "amphotericin",
         "ampicillin",
+        "ampicillin-sulbactam",
         "cefazolin",
         "cefepime",
         "ceftaroline",
@@ -116,7 +113,11 @@ meds = ["abciximab",
         "vasopressin"]
 
 meds = ['acetaminophen-iv']
-nurse_units = ['HH 7J', 'HH STRK']
+
+filepaths = glob.glob("../data/tidy/teresa/med-utilization_monthly_teresa_*.csv")
+df = pd.concat(map(lambda x: pd.read_csv(x, index_col=0, parse_dates=True), filepaths), sort=False)
+df.sort_index(inplace=True)
+df
 
 prs = Presentation("../doc/template.pptx")
 # title slide
@@ -128,7 +129,11 @@ title.text = "Medication Utilization in 7-Jones and Stroke"
 data_end = read_data(meds[0]).index[-1].strftime('%B %Y')
 subtitle.text = "Data through: " + data_end + "\nBrian Gulbis, PharmD, BCPS"
 
-for i in meds:
+nurse_units = ['HH 7J', 'HH STRK']
+
+for i in nurse_units:
+    
+    
     df = read_data(i)
     
     for j in nurse_units:
