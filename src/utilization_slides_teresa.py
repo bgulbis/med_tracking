@@ -11,11 +11,11 @@ from pptx.util import Inches
 filepaths = glob.glob("../data/tidy/teresa/med-utilization_monthly_teresa_*.csv")
 df = pd.concat(map(lambda x: pd.read_csv(x, index_col=0, parse_dates=True), filepaths), sort=False)
 df.sort_index(inplace=True)
+df['MONTH'] = pd.to_datetime('2018-' + (df.index-pd.DateOffset(months=6)).strftime('%m-%d')) + pd.DateOffset(months=6)
 df['FY'] = 'FY' + (df.index + pd.DateOffset(months=6)).strftime('%y')
-df['MONTH'] = pd.to_datetime('2018-' + (df.index - pd.DateOffset(months=6)).strftime('%m-%d')) + pd.DateOffset(months=6)
 
 when = df.index[-1]
-date_cut = date(day=1, month=7, year=(when + pd.DateOffset(months=6)).year) - pd.DateOffset(years=4)
+date_cut = date(day=1, month=7, year=(when+pd.DateOffset(months=6)).year) - pd.DateOffset(years=4)
 df = df.loc[date_cut:]
 
 df['MEDICATION'] = df['MEDICATION'].str.title()
@@ -28,7 +28,22 @@ df['MEDICATION'] = df['MEDICATION'].str.replace('Antihemophilic Factor', 'Factor
 df['MEDICATION'] = df['MEDICATION'].str.replace('Immune Globulin Intravenous And Subcut', 'IVIG')
 df['MEDICATION'] = df['MEDICATION'].str.replace('Immune Globulin Intravenous', 'IVIG')
 
-df.drop('PATIENTS', axis=1, inplace=True)
+nurse_units = df['NURSE_UNIT'].unique()
+meds = np.sort(df['MEDICATION'].unique())
+# fy = df['FY'][-1]
+# fill_dates = pd.date_range(when+pd.DateOffset(months=1), '2020-06-01', freq='MS')
+
+# for i in nurse_units:
+#     for j in meds:
+#         df_fill = pd.DataFrame({'NURSE_UNIT':i, 
+#                                 'MEDICATION':j, 
+#                                 'DOSES':None, 
+#                                 'PATIENTS':None, 
+#                                 'FY':fy}, 
+#                                index=fill_dates)
+#         df = df.append(df_fill, sort=False)
+
+# df.drop('PATIENTS', axis=1, inplace=True)
 
 df_pvt = pd.pivot_table(data=df, 
                         values='DOSES', 
@@ -48,9 +63,6 @@ subtitle = slide.placeholders[1]
 title.text = "Medication Utilization in 7-Jones and Stroke"
 data_end = df.index[-1].strftime('%B %Y')
 subtitle.text = "Data through: " + data_end + "\nBrian Gulbis, PharmD, BCPS"
-
-nurse_units = df['NURSE_UNIT'].unique()
-meds = np.sort(df['MEDICATION'].unique())
 
 # blank slide layout
 blank_slide_layout = prs.slide_layouts[6]
@@ -76,10 +88,19 @@ for i in nurse_units:
         chart_data.categories = df_j.index.get_level_values(2)
 
         # add series from right to left; most recent FY first
-        for k in range(len(df_j.columns)-1, -1, -1):
-            chart_data.add_series(df_j.columns[k], df_j.iloc[:, k])
+        for k in range(len(df_j.columns) - 1, -1, -1):
+            if k == 3:
+                ser = df_j.iloc[:, k]
+                idx = pd.to_datetime('2018-' + (when-pd.DateOffset(months=6)).strftime('%m-%d')) + pd.DateOffset(months=6)
+                idx_next = idx + pd.DateOffset(months=1)
+                keep = ser.loc[pd.IndexSlice[:, :, :idx]]
+                chg = ser.loc[pd.IndexSlice[:, :, idx_next:]].replace({0: None})
+                keep = keep.append(chg)
+                chart_data.add_series(df_j.columns[k], keep)
+            else:
+                chart_data.add_series(df_j.columns[k], df_j.iloc[:, k])
 
         chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data).chart
         chart.chart_title.text_frame.text = "{0} utilization ({1})".format(j, i)
 
-prs.save("../report/utilization/utilization_slides_teresa.pptx")
+prs.save("../report/teresa/utilization_slides.pptx")
