@@ -30,20 +30,6 @@ df['MEDICATION'] = df['MEDICATION'].str.replace('Immune Globulin Intravenous', '
 
 nurse_units = df['NURSE_UNIT'].unique()
 meds = np.sort(df['MEDICATION'].unique())
-# fy = df['FY'][-1]
-# fill_dates = pd.date_range(when+pd.DateOffset(months=1), '2020-06-01', freq='MS')
-
-# for i in nurse_units:
-#     for j in meds:
-#         df_fill = pd.DataFrame({'NURSE_UNIT':i, 
-#                                 'MEDICATION':j, 
-#                                 'DOSES':None, 
-#                                 'PATIENTS':None, 
-#                                 'FY':fy}, 
-#                                index=fill_dates)
-#         df = df.append(df_fill, sort=False)
-
-# df.drop('PATIENTS', axis=1, inplace=True)
 
 df_pvt = pd.pivot_table(data=df, 
                         values='DOSES', 
