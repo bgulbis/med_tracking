@@ -104,3 +104,18 @@ for i in nurse_units:
         chart.chart_title.text_frame.text = "{0} utilization ({1})".format(j, i)
 
 prs.save("../report/teresa/utilization_slides.pptx")
+
+# save data to Excel
+with pd.ExcelWriter('../report/teresa/utilization_data.xlsx') as writer:
+    for i in nurse_units:
+        df_excel = df.loc[df['NURSE_UNIT'] == i].copy()
+        df_excel.reset_index(inplace=True)
+        df_excel['MONTH'] = df_excel['EVENT_DATE'].dt.strftime('%b %y')
+        df_excel = pd.pivot_table(data=df_excel,
+                                  values='DOSES', 
+                                  index='MEDICATION', 
+                                  columns='EVENT_DATE',
+                                  aggfunc=np.sum,
+                                  fill_value=0)
+        
+        df_excel.to_excel(writer, sheet_name=i, freeze_panes=(1, 1))
