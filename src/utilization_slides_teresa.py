@@ -78,7 +78,7 @@ for i in nurse_units:
     for j in meds:
         df_j = df_pvt.loc[pd.IndexSlice[[j], [i], :]]
         
-        if len(df_j) == 0:
+        if np.sum(df_j.sum()) == 0:
             continue
         
         # add new slide for graph
