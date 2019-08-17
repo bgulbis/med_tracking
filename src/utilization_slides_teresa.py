@@ -110,11 +110,11 @@ with pd.ExcelWriter('../report/teresa/utilization_data.xlsx') as writer:
     for i in nurse_units:
         df_excel = df.loc[df['NURSE_UNIT'] == i].copy()
         df_excel.reset_index(inplace=True)
-        df_excel['MONTH'] = df_excel['EVENT_DATE'].dt.strftime('%b %y')
+        df_excel['MONTH'] = df_excel['EVENT_DATE'].dt.strftime('%Y-%m')
         df_excel = pd.pivot_table(data=df_excel,
                                   values='DOSES', 
                                   index='MEDICATION', 
-                                  columns='EVENT_DATE',
+                                  columns='MONTH',
                                   aggfunc=np.sum,
                                   fill_value=0)
         
