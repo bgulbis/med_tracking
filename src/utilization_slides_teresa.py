@@ -73,8 +73,7 @@ for i in nurse_units:
         chart_data = CategoryChartData()
         chart_data.categories = df_j.index.get_level_values(2)
 
-        # add series from right to left; most recent FY first
-        for k in range(len(df_j.columns) - 1, -1, -1):
+        for k in range(0, len(df_j.columns)):
             if k == 3:
                 ser = df_j.iloc[:, k]
                 idx = pd.to_datetime('2018-' + (when-pd.DateOffset(months=6)).strftime('%m-%d')) + pd.DateOffset(months=6)

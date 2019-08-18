@@ -67,8 +67,7 @@ for i in meds:
     chart_data = CategoryChartData()
     chart_data.categories = df_i.index
 
-    # add series from right to left; most recent FY first
-    for j in range(len(df_i.columns) - 1, -1, -1):
+    for j in range(0, len(df_i.columns)):
         if j == 3:
             ser = df_i.iloc[:, j]
             idx = pd.to_datetime('2018-' + (when-pd.DateOffset(months=6)).strftime('%m-%d')) + pd.DateOffset(months=6)
