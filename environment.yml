@@ -1,0 +1,11 @@
+name: med_tracking
+channels:
+  - defaults
+dependencies:
+  - python=3.7
+  - pip
+  - numpy
+  - pandas
+  - pip:
+    - python-pptx
+    - rpy2

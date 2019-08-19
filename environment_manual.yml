@@ -9,5 +9,22 @@ dependencies:
   - pillow
   - xlsxwriter
   - lxml
+  - atomicwrites
+  - attrs
+  - cffi
+  - importlib_metadata
+  - jinja2
+  - markupsafe
+  - more-itertools
+  - packaging
+  - pluggy
+  - py
+  - pycparser
+  - pytest
+  - simplegeneric
+  - six
+  - wcwidth
+  - zipp
   - pip:
     - python-pptx
+    - rpy2
