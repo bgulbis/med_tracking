@@ -11,34 +11,43 @@ FROM
 	CODE_VALUE CV_ENCOUTER_TYPE,
 	CODE_VALUE CV_EVENT,
 	CODE_VALUE CV_FACILITY,
-	ENCNTR_LOC_HIST
+	ENCNTR_LOC_HIST,
+	ENCOUNTER
 WHERE
-    CV_EVENT.DISPLAY IN (
-        'acetaminophen',
-        'albumin human',
-        'calcitonin',
-		'ceftaroline',
-        'ceftazidime-avibactam',
-        'ceftolozane-tazobactam',
-        'daptomycin',
-        'eculizumab',
-        'ertapenem',
-        'immune globulin intramuscular',
-        'immune globulin intravenous',
-        'immune globulin intravenous and subcut',
-        'immune globulin subcutaneous',
-        'isoproterenol',
-        'levothyroxine',
-        'meropenem-vaborbactam',
-        'niCARdipine',
-        'pegfilgrastim',
-        'sugammadex'
-    )
-    AND CV_EVENT.CODE_SET = 72
-    AND (
-        CV_EVENT.CODE_VALUE = CLINICAL_EVENT.EVENT_CD
-        AND CLINICAL_EVENT.VALID_UNTIL_DT_TM > DATE '2099-12-31'
-    )
+	CLINICAL_EVENT.EVENT_CD IN (
+		37556009, -- acetaminophen
+		37556051, -- albumin human
+		37556378, -- calcitonin
+		627676649, -- ceftaroline
+		1505894070, -- ceftazidime-avibactam
+		1370510034, -- ceftolozane-tazobactam
+		37556681, -- daptomycin
+		222403180, -- eculizumab
+		117038716, -- ertapenem
+		37557233, -- immune globulin intravenous
+		609787708, -- immune globulin intravenous and subcut
+		37557342, -- isoproterenol
+		37557425, -- levothyroxine
+		2737463843, -- meropenem-vaborbactam
+		37557675, -- niCARdipine
+		37557776, -- pegfilgrastim
+		1895018730 -- sugammadex
+	)
+	AND CLINICAL_EVENT.VALID_UNTIL_DT_TM > DATE '2099-12-31'
+    AND CLINICAL_EVENT.EVENT_CD = CV_EVENT.CODE_VALUE
+	AND (
+		CLINICAL_EVENT.ENCNTR_ID = ENCOUNTER.ENCNTR_ID
+		AND ENCOUNTER.ACTIVE_IND = 1
+		AND ENCOUNTER.LOC_FACILITY_CD IN (
+			3310, -- HH HERMANN
+			3796, -- HC Childrens
+			3821, -- HH Clinics
+			3822, -- HH Trans Care
+			3823, -- HH Rehab
+			1099966301 -- HH Oncology TMC
+		)
+		AND ENCOUNTER.ENCNTR_TYPE_CD = CV_ENCOUTER_TYPE.CODE_VALUE
+	)
 	AND (
 		CLINICAL_EVENT.ENCNTR_ID = ENCNTR_LOC_HIST.ENCNTR_ID
 		AND ENCNTR_LOC_HIST.ACTIVE_IND = 1
@@ -53,44 +62,25 @@ WHERE
 				AND CLINICAL_EVENT.EVENT_END_DT_TM >= ELH.TRANSACTION_DT_TM
 		)
 		AND ENCNTR_LOC_HIST.LOC_FACILITY_CD IN (
-			SELECT DISTINCT CODE_VALUE.CODE_VALUE
-			FROM CODE_VALUE
-			WHERE
-				CODE_VALUE.DISPLAY IN (
-					'HH HERMANN',
-					'HC Childrens',
-					'HH Clinics',
-					'HH Trans Care',
-					'HH Rehab',
-					'HH Oncology TMC'				
-				)
-				AND CODE_VALUE.CODE_SET = 220
-			)
-		AND ENCNTR_LOC_HIST.ENCNTR_TYPE_CD = CV_ENCOUTER_TYPE.CODE_VALUE
+			3310, -- HH HERMANN
+			3796, -- HC Childrens
+			3821, -- HH Clinics
+			3822, -- HH Trans Care
+			3823, -- HH Rehab
+			1099966301 -- HH Oncology TMC
+		)
 		AND ENCNTR_LOC_HIST.LOC_FACILITY_CD = CV_FACILITY.CODE_VALUE
 	)
 	AND (
 		CLINICAL_EVENT.EVENT_ID = CE_MED_RESULT.EVENT_ID
 		AND (
 			CE_MED_RESULT.ADMIN_DOSAGE > 0 
-			OR CE_MED_RESULT.IV_EVENT_CD IN (
-				SELECT DISTINCT CODE_VALUE.CODE_VALUE
-				FROM CODE_VALUE
-				WHERE 
-					CODE_VALUE.DISPLAY = 'Begin Bag'
-					AND CODE_VALUE.CODE_SET = 180
-			)
+			OR CE_MED_RESULT.IV_EVENT_CD = 688706 -- Begin Bag
 		)
 	)
 	AND (
-	    CV_EVENT.DISPLAY NOT IN ('acetaminophen', 'levothyroxine')
-	    OR CE_MED_RESULT.ADMIN_ROUTE_CD IN (
-			SELECT DISTINCT CODE_VALUE.CODE_VALUE
-			FROM CODE_VALUE
-			WHERE
-				CODE_VALUE.DISPLAY IN ('INJ', 'IV', 'IVP', 'IVPB')
-				AND CODE_VALUE.CODE_SET = 4001
-	    )
+	    CLINICAL_EVENT.EVENT_CD NOT IN (37556009, 37557425) -- (acetaminophen, levothyroxine)
+	    OR CE_MED_RESULT.ADMIN_ROUTE_CD IN (508984, 9022513, 9022647, 9022649) -- (IV, INJ, IVPB, IVP)
 	)
 	AND (
 		CLINICAL_EVENT.EVENT_END_DT_TM + 0

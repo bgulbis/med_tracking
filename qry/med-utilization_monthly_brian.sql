@@ -9,33 +9,33 @@ FROM
 	CLINICAL_EVENT,
 	CODE_VALUE CV_EVENT,
 	CODE_VALUE CV_NURSE_UNIT,
-	ENCNTR_LOC_HIST
+	ENCNTR_LOC_HIST,
+	ENCOUNTER
 WHERE
-    CV_EVENT.DISPLAY IN (
-        'acetaminophen',
-        'albumin human',
-		'alteplase',
-		'ceftaroline',
-        'ceftazidime-avibactam',
-        'ceftolozane-tazobactam',
-		'coagulation factor VIIa',
-        'daptomycin',
-		'dexmedetomidine',
-        'ertapenem',
-		'esmolol',
-        'levothyroxine',
-		'meropenem',
-		'meropenem-vaborbactam',
-        'niCARdipine',
-		'prothrombin complex',
-        'sugammadex',
-        'vasopressin'
-    )
-    AND CV_EVENT.CODE_SET = 72
-    AND (
-        CV_EVENT.CODE_VALUE = CLINICAL_EVENT.EVENT_CD
-        AND CLINICAL_EVENT.VALID_UNTIL_DT_TM > DATE '2099-12-31'
-    )
+	CLINICAL_EVENT.EVENT_CD IN (
+		37556009, -- acetaminophen
+		37556051, -- albumin human
+		37556077, -- alteplase
+		627676649, -- ceftaroline
+		37556551, -- cisatracurium
+		37556587, -- coagulation factor VIIa
+		37556681, -- daptomycin
+		37556709, -- dexmedetomidine
+		117038716, -- ertapenem
+		37556889, -- esmolol
+		37557425, -- levothyroxine
+		37557675, -- niCARdipine
+		926562948, -- prothrombin complex
+		1895018730, -- sugammadex
+		37558323 -- vasopressin
+	)
+	AND CLINICAL_EVENT.VALID_UNTIL_DT_TM > DATE '2099-12-31'
+    AND CLINICAL_EVENT.EVENT_CD = CV_EVENT.CODE_VALUE
+	AND (
+		CLINICAL_EVENT.ENCNTR_ID = ENCOUNTER.ENCNTR_ID
+		AND ENCOUNTER.ACTIVE_IND = 1
+		AND ENCOUNTER.LOC_FACILITY_CD = 3310 -- HH HERMANN
+	)
 	AND (
 		CLINICAL_EVENT.ENCNTR_ID = ENCNTR_LOC_HIST.ENCNTR_ID
 		AND ENCNTR_LOC_HIST.ACTIVE_IND = 1
@@ -49,37 +49,19 @@ WHERE
 				AND ELH.ACTIVE_IND = 1
 				AND CLINICAL_EVENT.EVENT_END_DT_TM >= ELH.TRANSACTION_DT_TM
 		)
-		AND ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD IN (
-			SELECT DISTINCT CODE_VALUE.CODE_VALUE
-			FROM CODE_VALUE
-			WHERE
-				CODE_VALUE.DISPLAY = 'HH CVICU'
-				AND CODE_VALUE.CODE_SET = 220
-		)
+		AND ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD = 5541 -- HH CVICU
 		AND ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD = CV_NURSE_UNIT.CODE_VALUE
 	)
 	AND (
 		CLINICAL_EVENT.EVENT_ID = CE_MED_RESULT.EVENT_ID
 		AND (
 			CE_MED_RESULT.ADMIN_DOSAGE > 0 
-			OR CE_MED_RESULT.IV_EVENT_CD IN (
-				SELECT DISTINCT CODE_VALUE.CODE_VALUE
-				FROM CODE_VALUE
-				WHERE 
-					CODE_VALUE.DISPLAY = 'Begin Bag'
-					AND CODE_VALUE.CODE_SET = 180
-			)
+			OR CE_MED_RESULT.IV_EVENT_CD = 688706 -- Begin Bag
 		)
 	)
 	AND (
-	    CV_EVENT.DISPLAY NOT IN ('acetaminophen', 'levothyroxine')
-	    OR CE_MED_RESULT.ADMIN_ROUTE_CD IN (
-			SELECT DISTINCT CODE_VALUE.CODE_VALUE
-			FROM CODE_VALUE
-			WHERE
-				CODE_VALUE.DISPLAY IN ('INJ', 'IV', 'IVP', 'IVPB')
-				AND CODE_VALUE.CODE_SET = 4001
-	    )
+	    CLINICAL_EVENT.EVENT_CD NOT IN (37556009, 37557425) -- (acetaminophen, levothyroxine)
+	    OR CE_MED_RESULT.ADMIN_ROUTE_CD IN (508984, 9022513, 9022647, 9022649) -- (IV, INJ, IVPB, IVP)
 	)
 	AND (
 		CLINICAL_EVENT.EVENT_END_DT_TM + 0
