@@ -46,7 +46,7 @@ prs = Presentation("doc/template.pptx")
 slide = prs.slides.add_slide(prs.slide_layouts[0])
 title = slide.shapes.title
 subtitle = slide.placeholders[1]
-title.text = "Medication Utilization in 7-Jones and Stroke"
+title.text = "Medication Utilization in CVICU"
 data_end = df.index[-1].strftime('%B %Y')
 subtitle.text = "Data through: " + data_end + "\nBrian Gulbis, PharmD, BCPS"
 
@@ -57,9 +57,9 @@ x, y, cx, cy = Inches(0.5), Inches(1), Inches(9), Inches(6)
 
 for i in nurse_units:
     # add section header slide
-    slide = prs.slides.add_slide(prs.slide_layouts[2])
-    title = slide.shapes.title
-    title.text = "Utilization in " + i
+    # slide = prs.slides.add_slide(prs.slide_layouts[2])
+    # title = slide.shapes.title
+    # title.text = "Utilization in " + i
 
     for j in meds:
         df_j = df_pvt.loc[pd.IndexSlice[[j], [i], :]]
@@ -86,7 +86,7 @@ for i in nurse_units:
                 chart_data.add_series(df_j.columns[k], df_j.iloc[:, k])
 
         chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data).chart
-        chart.chart_title.text_frame.text = "{0} utilization ({1})".format(j, i)
+        chart.chart_title.text_frame.text = "{0} utilization".format(j)
 
 prs.save("report/brian/utilization_slides.pptx")
 
