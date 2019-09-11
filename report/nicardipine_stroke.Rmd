@@ -1,0 +1,43 @@
+---
+title: "Nicardipine utilization in Stroke unit"
+author: "Brian Gulbis, PharmD, BCPS"
+date: "9/11/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(themebg)
+
+df <- read_csv("../data/tidy/nicardipine/nicardipine_stroke.csv") %>%
+    rename_all(str_to_lower)
+```
+
+```{r}
+df %>%
+    ggplot(aes(x = event_date, y = doses)) +
+    geom_line() +
+    ggtitle("Monthly use of nicardipine in the Stroke unit") +
+    scale_x_date("Month", date_breaks = "6 months", date_labels = "%b %y") +
+    ylab("Doses per month") +
+    theme_bg()
+```
+
+```{r}
+df %>%
+    mutate(event_qtr = floor_date(event_date, unit = "quarters")) %>%
+    group_by(event_qtr) %>%
+    summarize_at("doses", sum, na.rm = TRUE) %>%
+    ggplot(aes(x = event_qtr, y = doses)) +
+    ggtitle("Quarterly use of nicardipine in the Stroke unit") +
+    scale_x_date("Quarter", date_breaks = "year", date_labels = "%b %y") +
+    ylab("Doses per quarter") +
+    geom_line() +
+    theme_bg()
+```
+
