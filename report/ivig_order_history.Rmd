@@ -1,0 +1,109 @@
+---
+title: "IVIG Order History"
+author: "Brian Gulbis, PharmD, BCPS"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(themebg)
+
+df <- read_excel("../data/tidy/ivig/ivig_order_history.xlsx") %>%
+    rename_all(str_to_lower) %>%
+    mutate(order_month = floor_date(order_datetime, unit = "month")) %>%
+    mutate_at(
+        "nurse_unit",
+        str_replace_all,
+        pattern = c(
+            "HH 5EJP" = "HH 5JP",
+            "HH 5WJP" = "HH 5JP",
+            "HH TSIC" = "HH TSCU",
+            "HH HFIM" = "HH 5HVI",
+            "HH HFIC" = "HH 5HVI",
+            "HH VUHH" = "HH EDHH"
+        )
+    )
+
+```
+
+```{r med_service, fig.cap="Percent of IVIG orders since 2014 by the patient's primary service at the time of order placement."}
+df %>%
+    mutate_at("med_service", fct_infreq) %>%
+    mutate_at("med_service", fct_lump, n = 10, other_level = "All Others") %>%
+    mutate_at("med_service", fct_rev) %>%
+    add_count(name = "n_total") %>%
+    count(med_service, n_total) %>%
+    mutate(pct = n / n_total) %>%
+    ggplot(aes(x = med_service, y = pct)) +
+    geom_col() +
+    ggtitle("IVIG orders by primary service") +
+    xlab(NULL) +
+    scale_y_continuous(
+        "Orders (%)", 
+        labels = scales::percent_format(accuracy = 1)
+    ) +
+    coord_flip() +
+    theme_bg(yticks = FALSE)
+```
+
+```{r med_service_time, fig.cap="Number of orders for IVIG by primary service since 2014."}
+df %>%
+    mutate_at("med_service", fct_infreq) %>%
+    mutate_at("med_service", fct_lump, n = 6, other_level = "All Others") %>%
+    mutate_at("order_datetime", floor_date, unit = "quarters") %>%
+    count(med_service, order_datetime) %>%
+    ggplot(aes(x = order_datetime, y = n)) +
+    geom_line() +
+    ggtitle("Orders for IVIG by primary service") +
+    xlab("Time") +
+    ylab("Number of orders") +
+    facet_wrap(~ med_service) +
+    theme_bg()
+```
+
+```{r nurse_unit, fig.cap="Percent of IVIG orders since 2014 by the nursing unit the patient was in at the time of order placement."}
+df %>%
+    mutate_at("nurse_unit", fct_infreq) %>%
+    mutate_at("nurse_unit", fct_lump, n = 15, other_level = "All Others") %>%
+    mutate_at("nurse_unit", fct_rev) %>%
+    add_count(name = "n_total") %>%
+    count(nurse_unit, n_total) %>%
+    mutate(pct = n / n_total) %>%
+    ggplot(aes(x = nurse_unit, y = pct)) +
+    geom_col() +
+    ggtitle("IVIG orders by nursing unit") +
+    xlab(NULL) +
+    scale_y_continuous(
+        "Orders (%)", 
+        labels = scales::percent_format(accuracy = 1)
+    ) +
+    coord_flip() +
+    theme_bg(yticks = FALSE)
+```
+
+```{r nurse_unit_heatmap, fig.cap="Annual use of IVIG by nursing unit since 2014. A darker color indicates higher use of IVIG."}
+df %>%
+    mutate_at("nurse_unit", fct_infreq) %>%
+    mutate_at("nurse_unit", fct_lump, n = 15, other_level = "All Others") %>%
+    mutate_at("nurse_unit", fct_rev) %>%
+    mutate_at("order_datetime", floor_date, unit = "year") %>%
+    count(nurse_unit, order_datetime) %>%
+    ggplot(aes(x = order_datetime, y = nurse_unit, fill = n)) +
+    geom_tile(color = "white") +
+    ggtitle("Annual IVIG use by nursing unit") +
+    scale_x_datetime("Year", date_breaks = "year", date_labels = "%Y") +
+    ylab(NULL) +
+    scale_fill_gradient(low = "white", high = "steelblue") +
+    theme_bg(xticks = FALSE, yticks = FALSE) +
+    theme(
+        axis.line = element_blank(),
+        legend.position = "None"
+    )
+```
+
