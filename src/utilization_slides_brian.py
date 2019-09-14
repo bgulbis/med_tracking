@@ -8,6 +8,9 @@ from pptx.chart.data import CategoryChartData
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches
 
+df_days = pd.read_csv('data/tidy/patient_days.csv', index_col=0, parse_dates=True)
+df_days.sort_index(inplace=True)
+
 filepaths = glob.glob("data/tidy/brian/med-utilization_monthly_brian_*.csv")
 df = pd.concat(map(lambda x: pd.read_csv(x, index_col=0, parse_dates=True), filepaths), sort=False)
 df.sort_index(inplace=True)
@@ -30,6 +33,9 @@ df['MEDICATION'] = df['MEDICATION'].str.replace('Immune Globulin Intravenous', '
 
 nurse_units = df['NURSE_UNIT'].unique()
 meds = np.sort(df['MEDICATION'].unique())
+
+df['PATIENT_DAYS'] = df_days.loc[df_days['NURSE_UNIT'] == 'HH CVICU']['PATIENT_DAYS']
+df['DOSES_PT_DAYS'] = df['DOSES']/df['PATIENT_DAYS']
 
 df_pvt = pd.pivot_table(data=df, 
                         values='DOSES', 
@@ -55,38 +61,42 @@ blank_slide_layout = prs.slide_layouts[6]
 # chart size
 x, y, cx, cy = Inches(0.5), Inches(1), Inches(9), Inches(6)
 
-for i in nurse_units:
-    # add section header slide
-    # slide = prs.slides.add_slide(prs.slide_layouts[2])
-    # title = slide.shapes.title
-    # title.text = "Utilization in " + i
+for med in meds:
+    df_med = df_pvt.loc[pd.IndexSlice[[med], ['HH CVICU'], :]]
+    
+    if np.sum(df_med.sum()) == 0:
+        continue
+    
+    # add new slide for graph
+    slide = prs.slides.add_slide(blank_slide_layout)
 
-    for j in meds:
-        df_j = df_pvt.loc[pd.IndexSlice[[j], [i], :]]
-        
-        if np.sum(df_j.sum()) == 0:
-            continue
-        
-        # add new slide for graph
-        slide = prs.slides.add_slide(blank_slide_layout)
+    chart_data = CategoryChartData()
+    chart_data.categories = df_med.index.get_level_values(2)
 
-        chart_data = CategoryChartData()
-        chart_data.categories = df_j.index.get_level_values(2)
+    for i in range(0, len(df_med.columns)):
+        if i == 3:
+            ser = df_med.iloc[:, i]
+            idx = pd.to_datetime('2018-' + (when-pd.DateOffset(months=6)).strftime('%m-%d')) + pd.DateOffset(months=6)
+            idx_next = idx + pd.DateOffset(months=1)
+            keep = ser.loc[pd.IndexSlice[:, :, :idx]]
+            chg = ser.loc[pd.IndexSlice[:, :, idx_next:]].replace({0: None})
+            keep = keep.append(chg)
+            chart_data.add_series(df_med.columns[i], keep)
+        else:
+            chart_data.add_series(df_med.columns[i], df_med.iloc[:, i])
 
-        for k in range(0, len(df_j.columns)):
-            if k == 3:
-                ser = df_j.iloc[:, k]
-                idx = pd.to_datetime('2018-' + (when-pd.DateOffset(months=6)).strftime('%m-%d')) + pd.DateOffset(months=6)
-                idx_next = idx + pd.DateOffset(months=1)
-                keep = ser.loc[pd.IndexSlice[:, :, :idx]]
-                chg = ser.loc[pd.IndexSlice[:, :, idx_next:]].replace({0: None})
-                keep = keep.append(chg)
-                chart_data.add_series(df_j.columns[k], keep)
-            else:
-                chart_data.add_series(df_j.columns[k], df_j.iloc[:, k])
+    chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data).chart
+    chart.chart_title.text_frame.text = "{0} doses per month".format(med)
 
-        chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data).chart
-        chart.chart_title.text_frame.text = "{0} utilization".format(j)
+    # add new slide for doses per patient days graph
+    df_med_days = df.loc[df['MEDICATION'] == med].copy()
+
+    slide = prs.slides.add_slide(blank_slide_layout)
+    chart_data_days = CategoryChartData()
+    chart_data_days.categories = df_med_days.index
+    chart_data_days.add_series(df_med_days.columns[-1], df_med_days.iloc[:, -1])
+    chart_days = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data_days).chart
+    chart_days.chart_title.text_frame.text = "{0} doses per patient days".format(med)
 
 prs.save("report/brian/utilization_slides.pptx")
 
@@ -98,9 +108,21 @@ with pd.ExcelWriter('report/brian/utilization_data.xlsx') as writer:
         df_excel['MONTH'] = df_excel['EVENT_DATE'].dt.strftime('%Y-%m')
         df_excel = pd.pivot_table(data=df_excel,
                                   values='DOSES', 
-                                  index='MEDICATION', 
-                                  columns='MONTH',
+                                  columns='MEDICATION', 
+                                  index='MONTH',
                                   aggfunc=np.sum,
                                   fill_value=0)
         
-        df_excel.to_excel(writer, sheet_name=i, freeze_panes=(1, 1))
+        df_excel.to_excel(writer, sheet_name='Doses', freeze_panes=(1, 1))
+
+        df_excel = df.loc[df['NURSE_UNIT'] == i].copy()
+        df_excel.reset_index(inplace=True)
+        df_excel['MONTH'] = df_excel['EVENT_DATE'].dt.strftime('%Y-%m')
+        df_excel = pd.pivot_table(data=df_excel,
+                                  values='DOSES_PT_DAYS', 
+                                  columns='MEDICATION', 
+                                  index='MONTH',
+                                  aggfunc=np.sum,
+                                  fill_value=0)
+        
+        df_excel.to_excel(writer, sheet_name='Doses per Patient Days', freeze_panes=(1, 1))
