@@ -8,7 +8,7 @@ from pptx.chart.data import CategoryChartData
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches
 
-filepaths = glob.glob("../data/tidy/sidney/med-utilization_monthly_sidney_*.csv")
+filepaths = glob.glob("data/tidy/sidney/med-utilization_monthly_sidney_*.csv")
 df = pd.concat(map(lambda x: pd.read_csv(x, index_col=0, parse_dates=True), filepaths), sort=False)
 df.sort_index(inplace=True)
 df['MONTH'] = pd.to_datetime('2018-' + (df.index-pd.DateOffset(months=6)).strftime('%m-%d')) + pd.DateOffset(months=6)
@@ -41,7 +41,7 @@ df_pvt = pd.pivot_table(data=df,
                         fill_value=0,
                         dropna=False)
 
-prs = Presentation("../doc/template.pptx")
+prs = Presentation("doc/template.pptx")
 # title slide
 slide = prs.slides.add_slide(prs.slide_layouts[0])
 title = slide.shapes.title
@@ -82,4 +82,4 @@ for i in meds:
     chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data).chart
     chart.chart_title.text_frame.text = "{0} utilization".format(i)
 
-prs.save("../report/sidney/utilization_slides.pptx")
+prs.save("report/sidney/utilization_slides.pptx")
