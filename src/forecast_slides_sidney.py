@@ -72,8 +72,10 @@ for i in meds:
     
     idx = pd.date_range(df_actual.index[-1] + pd.DateOffset(months=1), periods=12, freq='MS')
     yhat = pd.Series(fcast.rx2("mean"), name="Forecast", index=idx)
-    lwr = pd.Series(fcast.rx2("lower")[:, :1].reshape(12, ), name="Lower", index=idx)
-    upr = pd.Series(fcast.rx2("upper")[:, :1].reshape(12, ), name="Upper", index=idx)
+    lwr = pd.Series(fcast.rx2("lower")[0:12], name="Lower", index=idx)
+    upr = pd.Series(fcast.rx2("upper")[0:12], name="Upper", index=idx)
+    # lwr = pd.Series(fcast.rx2("lower")[:, :1].reshape(12, ), name="Lower", index=idx)
+    # upr = pd.Series(fcast.rx2("upper")[:, :1].reshape(12, ), name="Upper", index=idx)
     df_fcast = pd.concat([yhat, lwr, upr], axis=1, sort=False)
 
     df_combined = pd.concat([df_actual, df_fcast], axis=1, sort=True)
