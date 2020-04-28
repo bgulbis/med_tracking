@@ -1,0 +1,77 @@
+---
+title: "Sedatives Comparison"
+author: "Brian Gulbis, PharmD, BCPS"
+date: "4/27/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(themebg)
+
+df_sedatives <- read_csv("../data/tidy/sedatives_neuro.csv") %>%
+    rename_all(str_to_lower) %>%
+    mutate_at("event_week", parse_datetime, format="%Y/%m/%d %H:%M:%S") %>%
+    filter(
+        nurse_unit %in% c(
+            "HH 7J", 
+            "HH STIC",
+            "HH S STIC", 
+            "HH MICU", 
+            "HH CVICU",
+            "HH CCU",
+            "HH S SHIC"
+        ),
+        !medication %in% c(
+            "lorazepam",
+            "morphine sulfate"
+        )
+    ) %>%
+    mutate(
+        bags_1kpd = bags / patient_days * 1000,
+        neuro = nurse_unit == "HH 7J",
+        unit_groups = case_when(
+            nurse_unit %in% c("HH STIC", "HH S STIC") ~ "STICU",
+            nurse_unit %in% c("HH MICU", "HH S SHIC") ~ "MICU/SHIC",
+            TRUE ~ str_replace_all(nurse_unit, "HH ", "")
+        )
+    )
+
+color_val = c("black", "#e41a1c", "#377eb8", "#4daf4a", "#ff7f00")
+# color_val = c("black", "#1b9e77", "#d95f02", "#7570b3", "#e7298a")
+
+alpha_val = 0.4
+```
+
+```{r, fig.cap="Comparison of total number of bags for each sedative / analgesic used in each ICU.", fig.height=8}
+df_sedatives %>%
+    ggplot(aes(x = event_week, y = bags)) +
+    geom_line(aes(color = unit_groups, alpha = unit_groups)) +
+    ggtitle("Total bags per week") +
+    xlab(NULL) +
+    ylab("Number of bags") +
+    scale_color_manual("Nurse Unit", values = color_val) +
+    scale_alpha_manual("Nurse Unit", values = c(1, seq(alpha_val, 4))) +
+    facet_wrap(~ medication, ncol = 2, scales = "free_y") +
+    theme_bg() +
+    theme(legend.position = "top")
+```
+
+
+```{r, fig.cap="Comparison of bags per 1,000 patient days for each sedative / analgesic used in each ICU.", fig.height=8}
+df_sedatives %>%
+    ggplot(aes(x = event_week, y = bags_1kpd)) +
+    geom_line(aes(color = unit_groups, alpha = unit_groups)) +
+    ggtitle("Bags per 1,000 patients days") +
+    xlab(NULL) +
+    ylab("Bags per 1,000 patient days") +
+    scale_color_manual("Nurse Unit", values = color_val) +
+    scale_alpha_manual("Nurse Unit", values = c(1, seq(alpha_val, 4))) +
+    facet_wrap(~ medication, ncol = 2, scales = "free_y") +
+    theme_bg() +
+    theme(legend.position = "top")
+```
