@@ -1,5 +1,5 @@
 SELECT DISTINCT
-	TO_CHAR(TRUNC(pi_from_gmt(CLINICAL_EVENT.EVENT_END_DT_TM, 'CST'), 'MONTH'), 'YYYY-MM-DD') AS EVENT_DATE,
+	TO_CHAR(TRUNC(pi_from_gmt(CLINICAL_EVENT.EVENT_END_DT_TM, 'America/Chicago'), 'MONTH'), 'YYYY-MM-DD') AS EVENT_DATE,
 	CV_ENCOUTER_TYPE.DISPLAY AS ENCOUNTER_TYPE,
 	CV_FACILITY.DISPLAY AS FACILITY,
 	CV_EVENT.DISPLAY AS MEDICATION,
@@ -86,35 +86,35 @@ WHERE
 		CLINICAL_EVENT.EVENT_END_DT_TM + 0
 			BETWEEN DECODE(
 				@Prompt('Choose date range', 'A', {'Today', 'Yesterday', 'Week to Date', 'Last Week', 'Last Month', 'Month to Date', 'User-defined', 'N Days Prior'}, mono, free, , , User:79),
-				'Today', pi_to_gmt(TRUNC(SYSDATE), 'CST'),
-				'Yesterday', pi_to_gmt(TRUNC(SYSDATE) - 1, 'CST'),
-				'Week to Date', pi_to_gmt(TRUNC(SYSDATE, 'DAY'), 'CST'),
-				'Last Week', pi_to_gmt(TRUNC(SYSDATE - 7, 'DAY'), 'CST'),
-				'Last Month', pi_to_gmt(TRUNC(ADD_MONTHS(SYSDATE, -1), 'MONTH'), 'CST'),
-				'Month to Date', pi_to_gmt(TRUNC(SYSDATE - 1, 'MONTH'), 'CST'),
+				'Today', pi_to_gmt(TRUNC(SYSDATE), 'America/Chicago'),
+				'Yesterday', pi_to_gmt(TRUNC(SYSDATE) - 1, 'America/Chicago'),
+				'Week to Date', pi_to_gmt(TRUNC(SYSDATE, 'DAY'), 'America/Chicago'),
+				'Last Week', pi_to_gmt(TRUNC(SYSDATE - 7, 'DAY'), 'America/Chicago'),
+				'Last Month', pi_to_gmt(TRUNC(ADD_MONTHS(SYSDATE, -1), 'MONTH'), 'America/Chicago'),
+				'Month to Date', pi_to_gmt(TRUNC(SYSDATE - 1, 'MONTH'), 'America/Chicago'),
 				'User-defined', pi_to_gmt(
 					TO_DATE(
 						@Prompt('Enter begin date (Leave as 01/01/1800 if using a Relative Date)', 'D', , mono, free, persistent, {'01/01/1800 00:00:00'}, User:80),
 						pi_get_dm_info_char_gen('Date Format Mask|FT','PI EXP|Systems Configuration|Date Format Mask')
 					),
 					pi_time_zone(1, @Variable('BOUSER'))),
-				'N Days Prior', pi_to_gmt(SYSDATE - @Prompt('Days Prior to Now', 'N', , mono, free, persistent, {'0'}, User:2080), 'CST')
+				'N Days Prior', pi_to_gmt(SYSDATE - @Prompt('Days Prior to Now', 'N', , mono, free, persistent, {'0'}, User:2080), 'America/Chicago')
 			)
 			AND DECODE(
 				@Prompt('Choose date range', 'A', {'Today', 'Yesterday', 'Week to Date', 'Last Week', 'Last Month', 'Month to Date', 'User-defined', 'N Days Prior'}, mono, free, , , User:79),
-				'Today', pi_to_gmt(TRUNC(SYSDATE) + (86399 / 86400), 'CST'),
-				'Yesterday', pi_to_gmt(TRUNC(SYSDATE) - (1 / 86400), 'CST'),
-				'Week to Date', pi_to_gmt(TRUNC(SYSDATE) - (1 / 86400), 'CST'),
-				'Last Week', pi_to_gmt(TRUNC(SYSDATE, 'DAY') - (1 / 86400), 'CST'),
-				'Last Month', pi_to_gmt(TRUNC(SYSDATE, 'MONTH') - (1 / 86400), 'CST'),
-				'Month to Date', pi_to_gmt(TRUNC(SYSDATE) - (1 / 86400), 'CST'),
+				'Today', pi_to_gmt(TRUNC(SYSDATE) + (86399 / 86400), 'America/Chicago'),
+				'Yesterday', pi_to_gmt(TRUNC(SYSDATE) - (1 / 86400), 'America/Chicago'),
+				'Week to Date', pi_to_gmt(TRUNC(SYSDATE) - (1 / 86400), 'America/Chicago'),
+				'Last Week', pi_to_gmt(TRUNC(SYSDATE, 'DAY') - (1 / 86400), 'America/Chicago'),
+				'Last Month', pi_to_gmt(TRUNC(SYSDATE, 'MONTH') - (1 / 86400), 'America/Chicago'),
+				'Month to Date', pi_to_gmt(TRUNC(SYSDATE) - (1 / 86400), 'America/Chicago'),
 				'User-defined', pi_to_gmt(
 					TO_DATE(
 						@Prompt('Enter end date (Leave as 01/01/1800 if using a Relative Date)', 'D', , mono, free, persistent, {'01/01/1800 23:59:59'}, User:81),
 						pi_get_dm_info_char_gen('Date Format Mask|FT','PI EXP|Systems Configuration|Date Format Mask')
 					),
 					pi_time_zone(1, @Variable('BOUSER'))),
-				'N Days Prior', pi_to_gmt(SYSDATE, 'CST')
+				'N Days Prior', pi_to_gmt(SYSDATE, 'America/Chicago')
 			)
 		AND CLINICAL_EVENT.EVENT_END_DT_TM
 			BETWEEN DECODE(
@@ -151,7 +151,7 @@ WHERE
 			) + 1
 	)
 GROUP BY
-    TRUNC(pi_from_gmt(CLINICAL_EVENT.EVENT_END_DT_TM, 'CST'), 'MONTH'),
+    TRUNC(pi_from_gmt(CLINICAL_EVENT.EVENT_END_DT_TM, 'America/Chicago'), 'MONTH'),
 	CV_ENCOUTER_TYPE.DISPLAY,
 	CV_FACILITY.DISPLAY,
 	CV_EVENT.DISPLAY
