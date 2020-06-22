@@ -1,5 +1,5 @@
 # %%
-from datetime import date
+from datetime import date, datetime
 import glob
 import numpy as np
 import pandas as pd
@@ -100,9 +100,33 @@ for i in meds:
 # %%
 df_sug = df.copy()
 df_sug = df_sug[df_sug['MEDICATION'] == 'Sugammadex']
-df_sug = df_sug.groupby('MED_SERVICE').resample('MS', on='DOSE_DATETIME').count()
-df_sug = df_sug[['EVENT_ID']].rename(columns={'EVENT_ID': 'DOSES'})
-df_sug = df_sug.sort_values(by='DOSES', ascending=False)
+
+# %%
+for i in ['MED_SERVICE', 'NURSE_UNIT', 'ENCNTR_TYPE']:
+    for j in [0, 5]:
+        m = datetime(day=1, month=(when - pd.DateOffset(months=j)).month, year=(when - pd.DateOffset(months=j)).year)
+        df_sug_i = df_sug[df_sug['DOSE_DATETIME'] >= m]
+        df_sug_i = df_sug_i.groupby(i).count()
+        df_sug_i = df_sug_i[['EVENT_ID']].rename(columns={'EVENT_ID': 'DOSES'})
+        df_sug_i = df_sug_i.sort_values(by='DOSES')
+        df_sug_i = df_sug_i.tail(20)
+
+        # add new slide for graph
+        slide = prs.slides.add_slide(blank_slide_layout)
+
+        chart_data = CategoryChartData()
+        chart_data.categories = df_sug_i.index
+        chart_data.add_series('Doses', df_sug_i['DOSES'])
+        chart = slide.shapes.add_chart(XL_CHART_TYPE.BAR_CLUSTERED, x, y, cx, cy, chart_data).chart
+        
+        if df_sug_i.shape[0] < 20:
+            t = df_sug_i.shape[0]
+        else:
+            t = 20
+
+        svc = {'MED_SERVICE': 'service lines', 'NURSE_UNIT': 'nurse units', 'ENCNTR_TYPE': 'encounter types'}
+        dt = {0: "in " + m.strftime('%b %Y'), 5: "since " + m.strftime('%b %Y')}
+        chart.chart_title.text_frame.text = f"Top {t} {svc[i]} utilizing sugammadex {dt[j]}"
 
 # %%
 prs.save("report/tmc_target_meds/utilization_slides.pptx")
