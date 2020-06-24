@@ -1,0 +1,63 @@
+---
+title: "IV Levothyroxine Excluding Life Gift"
+author: "Brian Gulbis, PharmD, BCPS"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(themebg)
+
+df <- read_excel("../data/raw/levothyroxine_exclude_life-gift.xlsx") %>%
+    rename_all(str_to_lower) %>%
+    mutate_at(c("encntr_id", "event_id", "person_id"), as.character) %>%
+    mutate(dose_month = floor_date(dose_datetime, unit = "month"))
+```
+
+```{r fig.cap="Number of doses per month for FY19 and FY20."}
+df %>%
+    count(dose_month) %>%
+    ggplot(aes(x = dose_month, y = n)) +
+    geom_col() +
+    ggtitle("Doses per month") +
+    xlab("Month") +
+    ylab("Doses") +
+    theme_bg()
+```
+
+```{r fig.cap="Top 20 nursing units by total number of doses administered during FY19 and FY20."}
+df %>%
+    count(nurse_unit, sort = TRUE) %>%
+    top_n(20) %>%
+    mutate_at("nurse_unit", as_factor) %>%
+    mutate_at("nurse_unit", fct_rev) %>%
+    ggplot(aes(x = nurse_unit, y = n)) +
+    geom_col() +
+    ggtitle("Number of doses per nursing unit") +
+    xlab("Nurse unit") +
+    ylab("Doses") +
+    coord_flip() +
+    theme_bg()
+```
+
+```{r fig.cap="Top 20 service lines by total number of doses administered during FY19 and FY20."}
+df %>%
+    count(med_service, sort = TRUE) %>%
+    top_n(20) %>%
+    mutate_at("med_service", as_factor) %>%
+    mutate_at("med_service", fct_rev) %>%
+    ggplot(aes(x = med_service, y = n)) +
+    geom_col() +
+    ggtitle("Number of doses per medical service") +
+    xlab("Service") +
+    ylab("Doses") +
+    coord_flip() +
+    theme_bg()
+```
