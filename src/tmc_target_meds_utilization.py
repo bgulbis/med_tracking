@@ -13,6 +13,7 @@ from pptx.util import Inches
 # import data
 filepaths = glob.glob("data/raw/tmc_target_meds_*.csv")
 df = pd.concat(map(lambda x: pd.read_csv(x, parse_dates=['DOSE_DATETIME']), filepaths), sort=False)
+df = df[df['MEDICATION'].notna()]
 
 # %%
 df['MEDICATION'] = df['MEDICATION'].str.title()

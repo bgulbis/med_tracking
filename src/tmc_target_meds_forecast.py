@@ -21,6 +21,7 @@ forecast.auto_arima = SignatureTranslatedFunction(forecast.auto_arima, init_prm_
 # import data
 filepaths = glob.glob("data/raw/tmc_target_meds_*.csv")
 df = pd.concat(map(lambda x: pd.read_csv(x, parse_dates=['DOSE_DATETIME']), filepaths), sort=False)
+df = df[df['MEDICATION'].notna()]
 
 # %%
 df['MEDICATION'] = df['MEDICATION'].str.title()
@@ -122,4 +123,4 @@ for i in meds:
     chart.chart_title.text_frame.text = "{0} forecast".format(i)
 
 # %%
-prs.save("report/sidney/forecast_slides.pptx")
+prs.save("report/tmc_target_meds/forecast_slides.pptx")
