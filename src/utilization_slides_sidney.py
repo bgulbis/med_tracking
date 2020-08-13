@@ -34,8 +34,7 @@ meds = np.sort(df['MEDICATION'].unique())
 
 df_pvt = pd.pivot_table(data=df, 
                         values='DOSES', 
-                        index=['MEDICATION', 
-                               pd.Grouper(key='MONTH', freq='MS')], 
+                        index=['MEDICATION', pd.Grouper(key='MONTH', freq='MS')], 
                         columns=pd.Grouper(key='FY'), 
                         aggfunc=np.sum, 
                         fill_value=0,

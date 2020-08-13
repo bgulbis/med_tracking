@@ -58,7 +58,12 @@ for i in meds:
     df_actual = df_actual.resample('MS').sum()
     df_actual.drop(['PATIENTS', 'INPT'], axis=1, inplace=True)
     df_actual.columns = ["Actual"]
-    
+
+    # if len(df_actual.index) < len(df.index):
+    if df_actual.index[-1] != df.index[-1]:
+        new_idx = pd.date_range(df_actual.index[0], when, freq='MS')
+        df_actual = df_actual.reindex(new_idx, fill_value=0)
+
     model = forecast.auto_arima(
         df_actual["Actual"],
         max_order=10,
@@ -77,6 +82,10 @@ for i in meds:
     # lwr = pd.Series(fcast.rx2("lower")[:, :1].reshape(12, ), name="Lower", index=idx)
     # upr = pd.Series(fcast.rx2("upper")[:, :1].reshape(12, ), name="Upper", index=idx)
     df_fcast = pd.concat([yhat, lwr, upr], axis=1, sort=False)
+
+    if len(df_actual.index) < len(df.index):
+        new_idx = pd.date_range(date_cut, when, freq='MS')
+        df_actual = df_actual.reindex(new_idx, fill_value=0)
 
     df_combined = pd.concat([df_actual, df_fcast], axis=1, sort=True)
     df_combined = df_combined.replace({pd.np.nan: None})
