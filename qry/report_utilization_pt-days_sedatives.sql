@@ -105,6 +105,7 @@ WITH START_MONTH AS (
 		AND ORDER_PRODUCT.ITEM_ID IN (
 			275733495, -- ketAMINE 10 mg/mL in NS 50 mL syringe
 			2931843, -- ketAMINE 500 mg/10 ml INJ VL
+			304408345, -- ketAMINE 2000mg/NS 200ml (10mg/ml)
 			10880895, -- fentaNYL 1000microgram/20ml drip (pyxis)
 			117052454, -- dexmedetomidine 4 microgram/ml 100ml
 			2950132, -- dexmedetomidine 200 microgram/2ml INJ
