@@ -8,6 +8,7 @@ WITH ALL_MEDS AS (
 		CODE_VALUE.CODE_VALUE IN (
 			37557425, -- levothyroxine
 			37556505, -- chlorothiazide
+			1693675401, -- cangrelor
 			390605159 -- tolvaptan		
 		) 
 ), ALL_MONTHS AS (
