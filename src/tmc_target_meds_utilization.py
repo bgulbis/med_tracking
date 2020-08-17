@@ -19,6 +19,7 @@ df = df[df['MEDICATION'].notna()]
 df['MEDICATION'] = df['MEDICATION'].str.title()
 df['MEDICATION'] = df['MEDICATION'].str.replace('Acetaminophen', 'Acetaminophen IV')
 df['MEDICATION'] = df['MEDICATION'].str.replace('Levothyroxine', 'Levothyroxine IV')
+df['MEDICATION'] = df['MEDICATION'].str.replace('Pantoprazole', 'Pantoprazole IV')
 df['MEDICATION'] = df['MEDICATION'].str.replace(' Human', '')
 df['MEDICATION'] = df['MEDICATION'].str.replace('Bupivacaine Liposome', 'Bupivacaine (liposomal)')
 df['MEDICATION'] = df['MEDICATION'].str.replace('Immune Globulin Intravenous And Subcut', 'IVIG')

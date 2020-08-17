@@ -37,6 +37,7 @@ WITH DOSES AS (
 			37557425, -- levothyroxine
 			2737463843, -- meropenem-vaborbactam
 			37557675, -- niCARdipine
+			37557761, -- pantoprazole
 			37557776, -- pegfilgrastim
 			1895018730 -- sugammadex
 		)
@@ -78,7 +79,8 @@ WITH DOSES AS (
 		AND (
 			CLINICAL_EVENT.EVENT_CD NOT IN (
 				37556009, -- acetaminophen
-				37557425 -- levothyroxine
+				37557425, -- levothyroxine
+				37557761 -- pantoprazole
 			)
 			OR CE_MED_RESULT.ADMIN_ROUTE_CD IN (
 					508984, -- IV
