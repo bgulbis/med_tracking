@@ -46,6 +46,8 @@ ts_doses <- df_meds %>%
     count(medication, month, name = "doses") %>%
     as_tsibble(key = medication, index = month)
 
+message("multi-core")
+
 plan("multiprocess")
 tic()
 
@@ -53,14 +55,30 @@ fit_doses <- ts_doses %>%
     filter(medication == "Acetaminophen IV") %>%
     model(
         ARIMA = ARIMA(doses, stepwise = FALSE, approximation = FALSE),
-        ARIMA2 = ARIMA(log(doses) ~ PDQ(0, 0, 0), stepwise = FALSE, approximation = FALSE),
+        # ARIMA2 = ARIMA(log(doses) ~ PDQ(0, 0, 0), stepwise = FALSE, approximation = FALSE),
         ETS = ETS(doses),
-        ETS2 = ETS(log(doses)),
+        # ETS2 = ETS(log(doses)),
         NNAR = NNETAR(log(doses) ~ AR(), n_networks = 30),
         VAR = VAR(doses)
     )
 
 toc()
 plan("sequential")
+
+message("single core")
+tic()
+
+fit_doses <- ts_doses %>%
+    filter(medication == "Acetaminophen IV") %>%
+    model(
+        ARIMA = ARIMA(doses, stepwise = FALSE, approximation = FALSE),
+        # ARIMA2 = ARIMA(log(doses) ~ PDQ(0, 0, 0), stepwise = FALSE, approximation = FALSE),
+        ETS = ETS(doses),
+        # ETS2 = ETS(log(doses)),
+        NNAR = NNETAR(log(doses) ~ AR(), n_networks = 30),
+        VAR = VAR(doses)
+    )
+
+toc()
 
 accuracy(fit_doses)
