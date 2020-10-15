@@ -1,0 +1,21 @@
+### Medication {.no-title}
+
+```{r}
+x <- filter(ts_doses, medication == m) %>%
+    mutate(date = as.Date(month))
+y <- filter(df_fc_doses_combo, medication == m) %>%
+    mutate(.model = "A_Fcast")
+z <- filter(df_fc_doses_ind, medication == m)
+
+plotly_fable(
+    x, 
+    y = doses, 
+    combo = y, 
+    mods = z, 
+    title = paste(m, title), 
+    ytitle = ytitle,
+    width = NULL,
+    height = NULL
+)
+
+```

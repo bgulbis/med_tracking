@@ -1,0 +1,234 @@
+---
+title: "Forecasts for Target Medications"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(fcasthelpr)
+library(fabletools)
+```
+
+```{r data}
+ts_doses <- read_rds("../data/final/ts_doses.Rds")
+df_fc_doses_ind <- read_rds("../data/final/df_fc_doses_ind.Rds")
+df_fc_doses_combo <- read_rds("../data/final/df_fc_doses_combo.Rds")
+
+title <- "forecast"
+ytitle <- "Doses"
+```
+
+Acetaminophen IV
+-----------------------------------------------------
+
+```{r}
+m <- "Acetaminophen IV"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Albumin
+-----------------------------------------------------
+
+```{r}
+m <- "Albumin"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Bupivacaine (liposomal)
+-----------------------------------------------------
+
+```{r}
+m <- "Bupivacaine (liposomal)"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Calcitonin
+-----------------------------------------------------
+
+```{r}
+m <- "Calcitonin"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Cangrelor
+-----------------------------------------------------
+
+```{r}
+m <- "Cangrelor"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Eculizumab
+-----------------------------------------------------
+
+```{r}
+m <- "Eculizumab"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Epoetin Alfa
+-----------------------------------------------------
+
+```{r}
+m <- "Epoetin Alfa"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Infliximab
+-----------------------------------------------------
+
+```{r}
+m <- "Infliximab"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Iodixanol
+-----------------------------------------------------
+
+```{r}
+m <- "Iodixanol"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Isoproterenol
+-----------------------------------------------------
+
+```{r}
+m <- "Isoproterenol"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+IVIG (inpatient)
+-----------------------------------------------------
+
+```{r}
+m <- "IVIG (inpatient)"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+IVIG (outpatient)
+-----------------------------------------------------
+
+```{r}
+m <- "IVIG (outpatient)"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Levothyroxine IV
+-----------------------------------------------------
+
+```{r}
+m <- "Levothyroxine IV"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Nicardipine
+-----------------------------------------------------
+
+```{r}
+m <- "Nicardipine"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Pantoprazole IV
+-----------------------------------------------------
+
+```{r}
+m <- "Pantoprazole IV"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Pegfilgrastim
+-----------------------------------------------------
+
+```{r}
+m <- "Pegfilgrastim"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Rasburicase
+-----------------------------------------------------
+
+```{r}
+m <- "Rasburicase"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Sugammadex
+-----------------------------------------------------
+
+```{r}
+m <- "Sugammadex"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+Tolvaptan
+-----------------------------------------------------
+
+```{r}
+m <- "Tolvaptan"
+```
+
+```{r child="child_plots.Rmd"}
+
+```
+
+
