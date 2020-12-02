@@ -77,28 +77,28 @@ ts_doses <- df_meds %>%
 #     # gg_season(y = doses)
 #     autoplot()
 
-# df_feat <- ts_doses %>% 
-#     features(doses, feat_stl)
-# 
-# df_feat2 <- ts_doses %>%
-#     features(log(doses + 1), feat_stl)
+df_feat <- ts_doses %>%
+    features(doses, feat_stl)
+
+df_feat2 <- ts_doses %>%
+    features(log(doses + 1), feat_stl)
 # 
 # df_feat %>%
 #     plot_ly(x = ~trend_strength, y = ~seasonal_strength_year, color = ~medication) %>%
 #     add_markers() %>%
 #     layout(yaxis = list(range = c(0, 1)))
 # 
-# dcmp_stl <- ts_doses %>%
-#     model(STL(doses)) %>%
-#     components()
-# 
-# dcmp_stl2 <- ts_doses %>%
-#     model(STL(log(doses + 1))) %>%
-#     components()
-# 
-# dcmp_stl3 <- ts_doses %>%
-#     model(STL(log(doses + 1) ~ season(window = Inf))) %>%
-#     components()
+dcmp_stl <- ts_doses %>%
+    model(STL(doses)) %>%
+    components()
+
+dcmp_stl2 <- ts_doses %>%
+    model(STL(log(doses + 1))) %>%
+    components()
+
+dcmp_stl3 <- ts_doses %>%
+    model(STL(log(doses + 1) ~ season(window = Inf))) %>%
+    components()
 # 
 # fit_dcmp <- ts_doses %>%
 #     model(
@@ -213,37 +213,41 @@ ts_doses <- df_meds %>%
 #     plot_ly(x = ~.month, y = ~.mean, color = ~.model) %>%
 #     add_lines()
 
+
 plan("multiprocess")
 tic()
 
 fit_doses <- ts_doses %>%
     # filter(medication %in% c("Acetaminophen IV", "Albumin", "Nicardipine", "Sugammadex")) %>%
     model(
-        ARIMA = ARIMA(doses, stepwise = FALSE, approximation = FALSE),
+        ARIMA = ARIMA(doses),
         ARIMA_D = decomposition_model(
             STL(log(doses + 1)),
-            ARIMA(trend, stepwise = FALSE, approximation = FALSE),
-            ARIMA(remainder, stepwise = FALSE, approximation = FALSE)
+            ARIMA(trend),
+            ARIMA(season_year),
+            ARIMA(remainder)
         ),
         # ARIMA_L = ARIMA(log(doses + 1), stepwise = FALSE, approximation = FALSE),
         ETS = ETS(doses),
         ETS_D = decomposition_model(
             STL(log(doses + 1) ~ season(window = Inf)),
             ETS(trend ~ season("N")),
+            ETS(season_year ~ season("N")),
             ETS(remainder ~ season("N"))
         ),
         # ETS_L = ETS(log(doses + 1)),
-        NNAR = NNETAR(log(doses + 1) ~ AR(), n_networks = 30),
-        NNAR_D = decomposition_model(
-            STL(log(doses + 1)),
-            NNETAR(trend),
-            NNETAR(remainder)
-        ),
+        # NNAR = NNETAR(log(doses + 1) ~ AR(), n_networks = 30),
+        # NNAR_D = decomposition_model(
+        #     STL(log(doses + 1)),
+        #     NNETAR(trend),
+        #     NNETAR(remainder)
+        # ),
         # NNAR_L = NNETAR(log(doses + 1) ~ AR(), n_networks = 30),
         VAR = VAR(doses),
         VAR_D = decomposition_model(
             STL(log(doses + 1) ~ season(window = Inf)),
             VAR(trend),
+            VAR(season_year),
             VAR(remainder)
         )
         # VAR_L = VAR(log(doses + 1))
@@ -252,7 +256,8 @@ fit_doses <- ts_doses %>%
         # Ensemble = (ARIMA + ETS + NNAR + VAR) / 4,
         # Ensemble_D = (ARIMA_D + ETS_D + NNAR_D + VAR_D) / 4,
         # Forecast_L = (ARIMA_L + ETS_L + NNAR_L + VAR_L) / 4,
-        Forecast = (ARIMA + ETS + NNAR + VAR + ARIMA_D + ETS_D + NNAR_D + VAR_D) / 8
+        # Forecast = (ARIMA + ETS + NNAR + VAR + ARIMA_D + ETS_D + NNAR_D + VAR_D) / 8
+        Forecast = (ARIMA + ETS + VAR + ARIMA_D + ETS_D + VAR_D) / 6
     )
 
 toc()
