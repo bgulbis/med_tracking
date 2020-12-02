@@ -16,6 +16,7 @@ WITH ALL_MEDS AS (
 			37556709, -- dexmedetomidine
 			117038716, -- ertapenem
 			37556889, -- esmolol
+			37557410, -- levalbuterol
 			37557425, -- levothyroxine
 			37557675, -- niCARdipine
 			37557761, -- pantoprazole

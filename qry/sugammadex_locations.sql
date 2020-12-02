@@ -14,8 +14,20 @@ WITH SUG_DOSES AS (
 	WHERE
 		CLINICAL_EVENT.EVENT_CD = 1895018730 -- sugammadex
 		AND CLINICAL_EVENT.EVENT_END_DT_TM BETWEEN
-			pi_to_gmt(TRUNC(ADD_MONTHS(SYSDATE, -1), 'MONTH'), pi_time_zone(2, @Variable('BOUSER')))
-			AND pi_to_gmt(TRUNC(SYSDATE, 'MONTH') - 1/86400, pi_time_zone(2, @Variable('BOUSER')))
+			pi_to_gmt(
+				TO_DATE(
+					@Prompt('Enter begin date', 'D', , mono, free, persistent, {'01/01/1800 00:00:00'}, User:0), 
+					pi_get_dm_info_char_gen('Date Format Mask|FT','PI EXP|Systems Configuration|Date Format Mask')
+				), 
+				'America/Chicago'
+			)
+			AND pi_to_gmt(
+				TO_DATE(
+					@Prompt('Enter end date', 'D', , mono, free, persistent, {'01/01/1800 00:00:00'}, User:1), 
+					pi_get_dm_info_char_gen('Date Format Mask|FT','PI EXP|Systems Configuration|Date Format Mask')
+				) - 1/86400, 
+				'America/Chicago'
+			)
 		AND CLINICAL_EVENT.EVENT_ID = CE_MED_RESULT.EVENT_ID
 		AND CLINICAL_EVENT.ENCNTR_ID = ENCNTR_LOC_HIST.ENCNTR_ID
 		AND ENCNTR_LOC_HIST.BEG_EFFECTIVE_DT_TM <= CLINICAL_EVENT.EVENT_END_DT_TM
