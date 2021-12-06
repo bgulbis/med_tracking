@@ -6,6 +6,7 @@ library(mschart)
 library(tsibble)
 # library(fabletools)
 
+p <- "/Volumes/brgulbis/Data/med_tracking/"
 source("src/target_meds_data.R", local = TRUE)
 
 my_theme <- mschart_theme(
@@ -209,4 +210,4 @@ pptx <- pptx %>%
     add_bars(p_sug_encntr_6m) 
 
 
-print(pptx, target = "report/tmc_target_meds/utilization_slides.pptx")
+print(pptx, target = paste0(p, "report/tmc_target_meds/utilization_slides.pptx"))

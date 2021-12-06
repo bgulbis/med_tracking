@@ -12,6 +12,7 @@ library(tictoc)
 library(themebg)
 library(plotly)
 
+p <- "/Volumes/brgulbis/Data/med_tracking/"
 
 source("src/target_meds_data.R", local = TRUE)
 
@@ -214,7 +215,7 @@ dcmp_stl3 <- ts_doses %>%
 #     add_lines()
 
 
-plan("multiprocess")
+# plan("multiprocess")
 tic()
 
 fit_doses <- ts_doses %>%
@@ -261,7 +262,7 @@ fit_doses <- ts_doses %>%
     )
 
 toc()
-plan("sequential")
+# plan("sequential")
 
 write_rds(fit_doses, "data/final/fit_doses.Rds")
 # df_acc <- accuracy(fit_doses)
@@ -269,9 +270,9 @@ write_rds(fit_doses, "data/final/fit_doses.Rds")
 # fit_doses <- read_rds("data/final/fit_doses.Rds")
 
 tic()
-plan("multiprocess")
+# plan("multiprocess")
 fc_doses <- forecast(fit_doses, h = 12)
-plan("sequential")
+# plan("sequential")
 toc()
 
 write_rds(fc_doses, "data/final/fc_doses.Rds")
@@ -325,9 +326,9 @@ df_fc_doses_combo <- df_fc_doses %>%
         date = as.Date(month)
     )
 
-write_rds(ts_doses, "data/final/ts_doses.Rds")
-write_rds(df_fc_doses_ind, "data/final/df_fc_doses_ind.Rds")
-write_rds(df_fc_doses_combo, "data/final/df_fc_doses_combo.Rds")
+write_rds(ts_doses, paste0(p, "final/ts_doses.Rds"))
+write_rds(df_fc_doses_ind, paste0(p, "final/df_fc_doses_ind.Rds"))
+write_rds(df_fc_doses_combo, paste0(p, "final/df_fc_doses_combo.Rds"))
 
 # x <- ts_doses %>%
 #     # as_tibble() %>%

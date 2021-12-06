@@ -1,4 +1,5 @@
-f <- list.files("data/raw/fy21", "tmc_target_meds", full.names = TRUE)
+f <- list.files(paste0(p, "raw/fy21"), "tmc_target_meds", full.names = TRUE)
+
 raw_df <- map_df(f, read_excel) %>%
     rename_all(str_to_lower) %>%
     distinct()

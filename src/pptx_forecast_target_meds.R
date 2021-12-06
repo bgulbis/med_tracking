@@ -4,9 +4,11 @@ library(officer)
 library(mschart)
 library(fabletools)
 
-ts_doses <- read_rds("data/final/ts_doses.Rds")
-# df_fc_doses_ind <- read_rds("data/final/df_fc_doses_ind.Rds")
-df_fc_doses_combo <- read_rds("data/final/df_fc_doses_combo.Rds")
+p <- "/Volumes/brgulbis/Data/med_tracking/"
+
+ts_doses <- read_rds(paste0(p, "final/ts_doses.Rds"))
+# df_fc_doses_ind <- read_rds(paset0(p, "final/df_fc_doses_ind.Rds"))
+df_fc_doses_combo <- read_rds(paste0(p, "final/df_fc_doses_combo.Rds"))
 
 x <- df_fc_doses_combo %>%
     mutate(across(date, ~format(., "%b %Y")))
@@ -64,6 +66,6 @@ for (i in 1:length(m)) {
     pptx <- add_chart(pptx, m[i])
 }
 
-print(pptx, target = "report/tmc_target_meds/forecast_slides.pptx")
+print(pptx, target = paste0(p, "report/tmc_target_meds/forecast_slides.pptx"))
     
     
