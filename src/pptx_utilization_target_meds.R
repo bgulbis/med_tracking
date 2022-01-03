@@ -6,7 +6,16 @@ library(mschart)
 library(tsibble)
 # library(fabletools)
 
-p <- "/Volumes/brgulbis/Data/med_tracking/"
+# get data from source
+if (Sys.info()['sysname'] == "Windows") {
+    p <- "U:/Data/med_tracking/"
+    if (!dir.exists(p)) {
+        p <- ""
+    }
+} else if (Sys.info()['sysname'] == "macOS") {
+    p <- "/Volumes/brgulbis/Data/med_tracking/"
+}
+
 source("src/target_meds_data.R", local = TRUE)
 
 my_theme <- mschart_theme(

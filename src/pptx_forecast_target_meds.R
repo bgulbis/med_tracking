@@ -4,7 +4,15 @@ library(officer)
 library(mschart)
 library(fabletools)
 
-p <- "/Volumes/brgulbis/Data/med_tracking/"
+# get data from source
+if (Sys.info()['sysname'] == "Windows") {
+    p <- "U:/Data/med_tracking/"
+    if (!dir.exists(p)) {
+        p <- ""
+    }
+} else if (Sys.info()['sysname'] == "macOS") {
+    p <- "/Volumes/brgulbis/Data/med_tracking/"
+}
 
 ts_doses <- read_rds(paste0(p, "final/ts_doses.Rds"))
 # df_fc_doses_ind <- read_rds(paset0(p, "final/df_fc_doses_ind.Rds"))

@@ -12,7 +12,15 @@ library(tictoc)
 library(themebg)
 library(plotly)
 
-p <- "/Volumes/brgulbis/Data/med_tracking/"
+# get data from source
+if (Sys.info()['sysname'] == "Windows") {
+    p <- "U:/Data/med_tracking/"
+    if (!dir.exists(p)) {
+        p <- ""
+    }
+} else if (Sys.info()['sysname'] == "macOS") {
+    p <- "/Volumes/brgulbis/Data/med_tracking/"
+}
 
 source("src/target_meds_data.R", local = TRUE)
 
@@ -264,7 +272,7 @@ fit_doses <- ts_doses %>%
 toc()
 # plan("sequential")
 
-write_rds(fit_doses, "data/final/fit_doses.Rds")
+write_rds(fit_doses, paste0(p, "final/fit_doses.Rds"))
 # df_acc <- accuracy(fit_doses)
 
 # fit_doses <- read_rds("data/final/fit_doses.Rds")
@@ -275,7 +283,7 @@ fc_doses <- forecast(fit_doses, h = 12)
 # plan("sequential")
 toc()
 
-write_rds(fc_doses, "data/final/fc_doses.Rds")
+write_rds(fc_doses, paste0(p, "final/fc_doses.Rds"))
 
 df_doses <- ts_doses %>% 
     as_tibble() %>%
