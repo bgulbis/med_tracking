@@ -6,14 +6,15 @@ library(mschart)
 library(tsibble)
 # library(fabletools)
 
-# get data from source
+# set path to data files
 if (Sys.info()['sysname'] == "Windows") {
     p <- "U:/Data/med_tracking/"
-    if (!dir.exists(p)) {
-        p <- ""
-    }
-} else if (Sys.info()['sysname'] == "macOS") {
+} else if (Sys.info()['sysname'] == "Darwin") { # macOS
     p <- "/Volumes/brgulbis/Data/med_tracking/"
+}
+
+if (!dir.exists(p)) {
+    stop("Network drive not available.")
 }
 
 source("src/target_meds_data.R", local = TRUE)
