@@ -52,19 +52,26 @@ df_data <- ts_doses %>%
     ) %>%
     select(medication, dose_month, doses, fiscal_year, fy = fiscal_qtr, fiscal_date)
 
-add_chart <- function(pptx, m, slide_layout = "Blank", slide_master = "Office Theme") {
+add_chart <- function(pptx, m, 
+                      slide_layout = "Title and Chart", 
+                      slide_master = "Office Theme", 
+                      title_loc <- ph_location_label("Title 1"),
+                      chart_loc <- ph_location_label("Content Placeholder 2")) {
+    # ph_location(left = 0.5, top = 1, width = 9, height = 6)
+    
     lc <- df_data %>%
         filter(medication == m) %>%
         ms_linechart(x = "fiscal_date", y = "doses", group = "fy") %>%
         chart_data_smooth(0) %>%
         chart_ax_x(num_fmt = "[$-en-US]mmm;@") %>%
         chart_ax_y(num_fmt = "#,##0") %>%
-        chart_labels(title = paste(m, "utilization"), ylab = "Doses") %>%
+        chart_labels(title = "Doses") %>%
         set_theme(my_theme)
     
     pptx %>%
         add_slide(layout = slide_layout, master = slide_master) %>%
-        ph_with(value = lc, location = ph_location(left = 0.5, top = 1, width = 9, height = 6))
+        ph_with(value = paste(m, "utilization"), location = title_loc) |>
+        ph_with(value = lc, location = chart_loc)
 }
 
 
@@ -178,7 +185,19 @@ p_sug_encntr_6m <- df_sug %>%
 
 # powerpoint slides -------------------------------------------------------
 
-slide_layout <- "Blank"
+my_theme <- mschart_theme(
+    grid_major_line = fp_border(width = 0),
+    date_fmt = "[$-en-US]mmm yyyy;@",
+    # main_title = fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri"),
+    main_title = fp_text(color = "#595959", font.size = 16, bold = FALSE, font.family = "Calibri"),
+    axis_title = fp_text(color = "#595959", font.size = 16, bold = FALSE, font.family = "Calibri"),
+    axis_text = fp_text(color = "#7F7F7F", font.size = 14, bold = FALSE, font.family = "Calibri"),
+    legend_position = "n",
+    legend_text = fp_text(color = "#7F7F7F", font.size = 14, bold = FALSE, font.family = "Calibri")
+)
+
+# slide_layout <- "Blank"
+slide_layout <- "Title and Chart"
 slide_master <- "Office Theme"
 
 
