@@ -48,7 +48,7 @@ df_data <- ts_doses |>
     filter(fiscal_year >= curr_fy - 3) |>
     mutate(
         across(fiscal_qtr, ~format(., "FY%y")),
-        across(fiscal_qtr, ~if_else(!is.na(product), paste(., product, sep = "-"), .)),
+        across(fiscal_qtr, ~if_else(!is.na(product), paste0(., " (", str_sub(product, 1, 1), ")"), .)),
         group_color = case_when(
             fiscal_year == curr_fy ~ "#000000",
             fiscal_year == curr_fy - 1 ~ "#A6CEE3",
@@ -108,6 +108,10 @@ add_chart <- function(pptx, m,
         chart_data_line_width(values = line_widths) |>
         chart_labels_text(values = data_labels) |>
         set_theme(my_theme)
+    
+    if (m == "Epoetin Alfa") {
+        lc <- chart_labels(lc, title = "Doses", xlab = "(P) = Procrit, (R) = Retacrit")
+    }
     
     slide_title_format <- fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri")
     slide_title <- fpar(ftext(paste(m, "utilization"), slide_title_format))
