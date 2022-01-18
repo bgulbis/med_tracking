@@ -20,10 +20,18 @@ if (!dir.exists(p)) {
 source("src/target_meds_data.R", local = TRUE)
 
 my_theme <- mschart_theme(
-    grid_major_line = fp_border(width = 0),
-    date_fmt = "[$-en-US]mmm yy;@",
-    legend_position = "n"
+    grid_major_line = fp_border(style = "none"),
+    double_fmt = "#,##0",
+    date_fmt = "[$-en-US]mmm yyyy;@",
+    # main_title = fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri"),
+    main_title = fp_text(color = "#595959", font.size = 16, bold = FALSE, font.family = "Calibri"),
+    axis_title = fp_text(color = "#595959", font.size = 16, bold = FALSE, font.family = "Calibri"),
+    axis_text = fp_text(color = "#7F7F7F", font.size = 14, bold = FALSE, font.family = "Calibri"),
+    legend_position = "n",
+    legend_text = fp_text(color = "#7F7F7F", font.size = 14, bold = FALSE, font.family = "Calibri")
 )
+
+slide_title_format <- fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri")
 
 ts_doses <- df_meds |>
     mutate(across(dose_month, as.Date)) |>
@@ -107,13 +115,16 @@ add_chart <- function(pptx, m,
         chart_data_line_style(values = line_styles) |>
         chart_data_line_width(values = line_widths) |>
         chart_labels_text(values = data_labels) |>
-        set_theme(my_theme)
+        set_theme(my_theme) |> 
+        chart_theme(axis_ticks_y = fp_border(color = "#FFFFFF"))
+    
+    cover_top <- 6.7
     
     if (m == "Epoetin Alfa") {
         lc <- chart_labels(lc, title = "Doses", xlab = "(P) = Procrit, (R) = Retacrit")
+        cover_top <- 6.4
     }
     
-    slide_title_format <- fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri")
     slide_title <- fpar(ftext(paste(m, "utilization"), slide_title_format))
     
     g <- ggplot() +
@@ -124,13 +135,15 @@ add_chart <- function(pptx, m,
         add_slide(layout = slide_layout, master = slide_master) |>
         ph_with(value = slide_title, location = title_loc) |>
         ph_with(value = lc, location = chart_loc) |> 
-        ph_with(value = g, location = ph_location(left = 1, top = 6.7, width = 0.6, height = 0.3)) |> 
-        ph_with(value = g, location = ph_location(left = 8.8, top = 6.7, width = 0.5, height = 0.3))
+        ph_with(value = g, location = ph_location(left = 1, top = cover_top, width = 0.6, height = 0.3)) |> 
+        ph_with(value = g, location = ph_location(left = 8.8, top = cover_top, width = 0.5, height = 0.3))
     
 }
 
 
 # epo use by product ------------------------------------------------------
+
+fill_color <- "#1F78B4"
 
 p_epo <- ts_doses |>
     filter(
@@ -139,15 +152,18 @@ p_epo <- ts_doses |>
     ) |>
     ms_barchart(x = "dose_month", y = "doses", group = "product") |>
     as_bar_stack(percent = TRUE) |>
-    chart_ax_x(num_fmt = "[$-en-US]mmm yy;@") |>
-    chart_ax_y(num_fmt = "#,##0") |>
-    chart_labels(title = "Percent of epoetin doses by product", ylab = "Doses") |>
-    set_theme(my_theme)
+    chart_ax_x(num_fmt = "[$-en-US]mmm yy;@", major_tick_mark = "none") |>
+    chart_ax_y(num_fmt = "0%%", major_tick_mark = "none") |>
+    chart_labels(title = "Doses (%)") |>
+    chart_data_fill(values = c(Retacrit = "#FFFFFF", Procrit = fill_color)) |> 
+    chart_data_stroke(values = c(Retacrit = "#FFFFFF", Procrit = fill_color)) |> 
+    set_theme(my_theme) |> 
+    chart_theme(axis_ticks_y = fp_border(color = "#FFFFFF"))
 
 # sugammadex breakdown ----------------------------------------------------
 
-title_1m <- format(max(ts_doses$dose_month), "%b, %Y")
-title_6m <- format(max(ts_doses$dose_month) - months(5), "%b, %Y")
+title_1m <- format(max(ts_doses$dose_month), "%B, %Y")
+title_6m <- format(max(ts_doses$dose_month) - months(5), "%B, %Y")
 
 df_sug <- df_meds |>
     filter(
@@ -155,115 +171,65 @@ df_sug <- df_meds |>
         dose_month > max(ts_doses$dose_month) - months(6)
     )
 
-p_sug_service_1m <- df_sug |>
-    filter(dose_month == max(ts_doses$dose_month)) |>
-    group_by(med_service) |>
-    summarize(across(doses, sum, na.rm = TRUE)) |>
-    arrange(doses) |>
-    top_n(20, doses) |>
-    mutate(across(med_service, str_replace_all, pattern = "&", replacement = "and")) |>
-    mutate(across(med_service, fct_inorder)) |>
-    ms_barchart(x = "med_service", y = "doses") |>
-    chart_settings(var_colors = TRUE, dir = "horizontal", grouping = "standard") |>
-    chart_ax_y(num_fmt = "#,##0") |>
-    chart_labels(title = paste("Top 20 service lines utilizing sugammadex in", title_1m), ylab = "Doses") |>
-    set_theme(my_theme) |>
-    chart_theme(title_y_rot = 0)
+add_bars <- function(df, x, .title, filter = TRUE) {
+    x <- enquo(x)
+    
+    if (filter) {
+        df <- filter(df, dose_month == max(ts_doses$dose_month))
+    }
+    
+    if (rlang::as_name(x) == "encntr_type") {
+        axis_font <- 14
+    } else {
+        axis_font <- 12
+    }
+    
+    df |> 
+        group_by(!!x) |> 
+        summarize(across(doses, sum, na.rm = TRUE)) |>
+        arrange(doses) |>
+        top_n(20, doses) |>
+        mutate(across(!!x, str_replace_all, pattern = "&", replacement = "and")) |>
+        mutate(across(!!x, fct_inorder)) |>
+        ms_barchart(x = rlang::as_name(x), y = "doses") |>
+        chart_settings(var_colors = TRUE, dir = "horizontal", grouping = "standard") |>
+        chart_ax_x(major_tick_mark = "none") |> 
+        chart_ax_y(num_fmt = "#,##0", major_tick_mark = "none") |>
+        chart_labels(title = .title, ylab = "Doses") |>
+        chart_data_fill(fill_color) |> 
+        chart_data_stroke(fill_color) |> 
+        set_theme(my_theme) |> 
+        chart_theme(
+            axis_text_x = fp_text(color = "#7F7F7F", font.size = axis_font, bold = FALSE, font.family = "Calibri"),
+            axis_ticks_x = fp_border(color = "#FFFFFF"),
+            title_y_rot = 0
+        )
+} 
 
-p_sug_service_6m <- df_sug |>
-    group_by(med_service) |>
-    summarize(across(doses, sum, na.rm = TRUE)) |>
-    arrange(doses) |>
-    top_n(20, doses) |>
-    mutate(across(med_service, str_replace_all, pattern = "&", replacement = "and")) |>
-    mutate(across(med_service, fct_inorder)) |>
-    ms_barchart(x = "med_service", y = "doses") |>
-    chart_settings(var_colors = TRUE, dir = "horizontal", grouping = "standard") |>
-    chart_ax_y(num_fmt = "#,##0") |>
-    chart_labels(title = paste("Top 20 service lines utilizing sugammadex since", title_6m), ylab = "Doses") |>
-    set_theme(my_theme) |>
-    chart_theme(title_y_rot = 0)
-
-p_sug_loc_1m <- df_sug |>
-    filter(dose_month == max(ts_doses$dose_month)) |>
-    group_by(nurse_unit) |>
-    summarize(across(doses, sum, na.rm = TRUE)) |>
-    arrange(doses) |>
-    top_n(20, doses) |>
-    mutate(across(nurse_unit, fct_inorder)) |>
-    ms_barchart(x = "nurse_unit", y = "doses") |>
-    chart_settings(var_colors = TRUE, dir = "horizontal", grouping = "standard") |>
-    chart_ax_y(num_fmt = "#,##0") |>
-    chart_labels(title = paste("Top 20 nurse units utilizing sugammadex in", title_1m), ylab = "Doses") |>
-    set_theme(my_theme) |>
-    chart_theme(title_y_rot = 0)
-
-p_sug_loc_6m <- df_sug |>
-    group_by(nurse_unit) |>
-    summarize(across(doses, sum, na.rm = TRUE)) |>
-    arrange(doses) |>
-    top_n(20, doses) |>
-    mutate(across(nurse_unit, fct_inorder)) |>
-    ms_barchart(x = "nurse_unit", y = "doses") |>
-    chart_settings(var_colors = TRUE, dir = "horizontal", grouping = "standard") |>
-    chart_ax_y(num_fmt = "#,##0") |>
-    chart_labels(title = paste("Top 20 nurse units utilizing sugammadex since", title_6m), ylab = "Doses") |>
-    set_theme(my_theme) |>
-    chart_theme(title_y_rot = 0)
-
-p_sug_encntr_1m <- df_sug |>
-    filter(dose_month == max(ts_doses$dose_month)) |>
-    group_by(encntr_type) |>
-    summarize(across(doses, sum, na.rm = TRUE)) |>
-    arrange(doses) |>
-    top_n(20, doses) |>
-    mutate(across(encntr_type, fct_inorder)) |>
-    ms_barchart(x = "encntr_type", y = "doses") |>
-    chart_settings(var_colors = TRUE, dir = "horizontal", grouping = "standard") |>
-    chart_ax_y(num_fmt = "#,##0") |>
-    chart_labels(title = paste("Sugammadex use by encounter type in", title_1m), ylab = "Doses") |>
-    set_theme(my_theme) |>
-    chart_theme(title_y_rot = 0)
-
-p_sug_encntr_6m <- df_sug |>
-    group_by(encntr_type) |>
-    summarize(across(doses, sum, na.rm = TRUE)) |>
-    arrange(doses) |>
-    top_n(20, doses) |>
-    mutate(across(encntr_type, fct_inorder)) |>
-    ms_barchart(x = "encntr_type", y = "doses") |>
-    chart_settings(var_colors = TRUE, dir = "horizontal", grouping = "standard") |>
-    chart_ax_y(num_fmt = "#,##0") |>
-    chart_labels(title = paste("Sugammadex use by encounter type since", title_6m), ylab = "Doses") |>
-    set_theme(my_theme) |>
-    chart_theme(title_y_rot = 0)
+p_sug_service_1m <- add_bars(df_sug, med_service, title_1m)
+    
+p_sug_service_6m <- add_bars(df_sug, med_service, paste("Since", title_6m), FALSE)
+    
+p_sug_loc_1m <- add_bars(df_sug, nurse_unit, title_1m)
+    
+p_sug_loc_6m <- add_bars(df_sug, nurse_unit, paste("Since", title_6m), FALSE)
+    
+p_sug_encntr_1m <- add_bars(df_sug, encntr_type, title_1m)
+    
+p_sug_encntr_6m <- add_bars(df_sug, encntr_type, paste("Since", title_6m), FALSE)
 
 # powerpoint slides -------------------------------------------------------
 
-my_theme <- mschart_theme(
-    grid_major_line = fp_border(width = 0),
-    double_fmt = "#,##0",
-    date_fmt = "[$-en-US]mmm yyyy;@",
-    # main_title = fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri"),
-    main_title = fp_text(color = "#595959", font.size = 16, bold = FALSE, font.family = "Calibri"),
-    axis_title = fp_text(color = "#595959", font.size = 16, bold = FALSE, font.family = "Calibri"),
-    axis_text = fp_text(color = "#7F7F7F", font.size = 14, bold = FALSE, font.family = "Calibri"),
-    legend_position = "n",
-    legend_text = fp_text(color = "#7F7F7F", font.size = 14, bold = FALSE, font.family = "Calibri")
-)
 
-slide_layout <- "Blank"
-# slide_layout <- "Title and Chart"
+# slide_layout <- "Blank"
+slide_layout <- "Title and Chart"
 slide_master <- "Office Theme"
 
+title_loc <- ph_location_label("Title 1")
+chart_loc <- ph_location_label("Chart Placeholder 7")
 
-add_bars <- function(pptx, value) {
-    pptx |>
-        ph_with(value = value, location = ph_location(left = 0.5, top = 1, width = 9, height = 6))
-}
-
-test_pptx <- read_pptx("doc/template.pptx")
-layout_properties(test_pptx, layout = "Title and Chart")
+# test_pptx <- read_pptx("doc/template.pptx")
+# layout_properties(test_pptx, layout = slide_layout)
 # layout_properties(test_pptx, layout = "Title Slide")
 
 
@@ -285,19 +251,27 @@ for (i in 1:length(m)) {
 
 pptx <- pptx |>
     add_slide(layout = slide_layout, master = slide_master) |>
-    add_bars(p_epo) |>
+    ph_with(value = fpar(ftext("Percent of epoetin doses administered with Procrit", slide_title_format)), location = title_loc) |>
+    ph_with(value = p_epo, location = chart_loc) |> 
     add_slide(layout = slide_layout, master = slide_master) |>
-    add_bars(p_sug_service_1m) |>
+    ph_with(value = fpar(ftext("Top 20 service lines at time of sugammadex administration", slide_title_format)), location = title_loc) |>
+    ph_with(value = p_sug_service_1m, location = chart_loc) |> 
     add_slide(layout = slide_layout, master = slide_master) |>
-    add_bars(p_sug_service_6m) |>
+    ph_with(value = fpar(ftext("Top 20 service lines at time of sugammadex administration", slide_title_format)), location = title_loc) |>
+    ph_with(value = p_sug_service_6m, location = chart_loc) |> 
     add_slide(layout = slide_layout, master = slide_master) |>
-    add_bars(p_sug_loc_1m) |>
+    ph_with(value = fpar(ftext("Top 20 nursing units at time of sugammadex administration", slide_title_format)), location = title_loc) |>
+    ph_with(value = p_sug_loc_1m, location = chart_loc) |> 
     add_slide(layout = slide_layout, master = slide_master) |>
-    add_bars(p_sug_loc_6m) |>
+    ph_with(value = fpar(ftext("Top 20 nursing units at time of sugammadex administration", slide_title_format)), location = title_loc) |>
+    ph_with(value = p_sug_loc_6m, location = chart_loc) |> 
     add_slide(layout = slide_layout, master = slide_master) |>
-    add_bars(p_sug_encntr_1m) |>
+    ph_with(value = fpar(ftext("Encounter type at time of sugammadex administration", slide_title_format)), location = title_loc) |>
+    ph_with(value = p_sug_encntr_1m, location = chart_loc) |> 
     add_slide(layout = slide_layout, master = slide_master) |>
-    add_bars(p_sug_encntr_6m) 
-
+    ph_with(value = fpar(ftext("Encounter type at time of sugammadex administration", slide_title_format)), location = title_loc) |>
+    ph_with(value = p_sug_encntr_6m, location = chart_loc) |> 
+    move_slide(21, 9) |> 
+    move_slide(21, 20)
 
 print(pptx, target = paste0(p, "report/tmc_target_meds/utilization_slides.pptx"))
