@@ -15,6 +15,20 @@ if (!dir.exists(p)) {
     stop("Network drive not available.")
 }
 
+my_theme <- mschart_theme(
+    grid_major_line = fp_border(style = "none"),
+    double_fmt = "#,##0",
+    date_fmt = "[$-en-US]mmm yyyy;@",
+    # main_title = fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri"),
+    main_title = fp_text(color = "#595959", font.size = 16, bold = FALSE, font.family = "Calibri"),
+    axis_title = fp_text(color = "#595959", font.size = 16, bold = FALSE, font.family = "Calibri"),
+    axis_text = fp_text(color = "#7F7F7F", font.size = 14, bold = FALSE, font.family = "Calibri"),
+    legend_position = "n",
+    legend_text = fp_text(color = "#7F7F7F", font.size = 14, bold = FALSE, font.family = "Calibri")
+)
+
+slide_title_format <- fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri")
+
 ts_doses <- read_rds(paste0(p, "final/ts_doses.Rds"))
 # df_fc_doses_ind <- read_rds(paset0(p, "final/df_fc_doses_ind.Rds"))
 df_fc_doses_combo <- read_rds(paste0(p, "final/df_fc_doses_combo.Rds"))
@@ -25,7 +39,11 @@ x <- df_fc_doses_combo %>%
 m <- unique(ts_doses$medication)
 date_cut <- (floor_date(max(df_fc_doses_combo$date), unit = "year") + months(6)) - years(4)
 
-add_chart <- function(pptx, m, slide_layout = "Blank", slide_master = "Office Theme") {
+add_chart <- function(pptx, m, slide_layout = "Title and Chart", 
+                      slide_master = "Office Theme", 
+                      title_loc = ph_location_label("Title 1"),
+                      chart_loc = ph_location_label("Chart Placeholder 7")) {
+    
     df_fcast <- df_fc_doses_combo %>%
         filter(medication == m) %>%
         select(medication, date, Forecast = .mean, lo_80, hi_80) %>%
@@ -38,27 +56,38 @@ add_chart <- function(pptx, m, slide_layout = "Blank", slide_master = "Office Th
         select(medication, date = dose_month, model, value = doses) %>%
         bind_rows(df_fcast) %>%
         filter(date >= date_cut)
+
+    slide_title <- fpar(ftext(paste(m, "forecast"), slide_title_format))
+    
+    group_colors <- c(Actual = "#1F78B4", Forecast = "#A6CEE3", lo_80 = "#F2F2F2", hi_80 = "#F2F2F2")
+    line_styles <- c(Actual = "solid", Forecast = "dashed", lo_80 = "dashed", hi_80 = "dashed")
+    line_Widths <- c(Actual = 3.5, Forecast = 2.25, lo_80 = 2.25, hi_80 = 2.25)
+    data_labels <- list(
+        Actual = fp_text(color = "#1F78B4", font.size = 14, font.family = "Calibri"),
+        Forecast = fp_text(color = "#A6CEE3", font.size = 14, font.family = "Calibri"),
+        lo_80 = fp_text(color = "#F2F2F2", font.size = 14, font.family = "Calibri"),
+        hi_80 = fp_text(color = "#F2F2F2", font.size = 14, font.family = "Calibri")
+    )
     
     lc <- ms_linechart(df_all, x = "date", y = "value", group = "model") %>%
+        chart_settings(style = "line") |>
         chart_ax_x(num_fmt = "[$-en-US]mmm yy;@") %>%
         chart_ax_y(num_fmt = "#,##0") %>%
-        chart_labels(title = paste(m, "forecast"), ylab = "Doses") 
+        chart_labels(title = "Doses") |> 
+        chart_data_fill(values = group_colors) |>
+        chart_data_stroke(values = group_colors) |>
+        chart_data_line_style(values = line_styles) |>
+        chart_data_line_width(values = line_widths) |>
+        chart_labels_text(values = data_labels) |>
+        set_theme(my_theme) 
     
     pptx %>%
-        add_slide(layout = slide_layout, master = slide_master) %>%
-        ph_with(value = lc, location = ph_location(left = 0.5, top = 1, width = 9, height = 6))
+        add_slide(layout = slide_layout, master = slide_master) |>
+        ph_with(value = slide_title, location = title_loc) |>
+        ph_with(value = lc, location = chart_loc) 
 }
 
-slide_layout <- "Blank"
-slide_master <- "Office Theme"
-my_theme <- mschart_theme(
-    grid_major_line = fp_border(width = 0),
-    date_fmt = "[$-en-US]mmm yyyy;@",
-    legend_position = "n"
-)
-
 pptx <- read_pptx("doc/template.pptx") %>%
-    set_theme(my_theme) %>%
     add_slide(layout = "Title Slide", master = slide_master) %>%
     ph_with("Forecast for Target Medications", location = ph_location_label("Title 1")) %>%
     ph_with(
