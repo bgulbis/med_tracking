@@ -33,7 +33,7 @@ ts_doses <- read_rds(paste0(p, "final/ts_doses.Rds"))
 # df_fc_doses_ind <- read_rds(paset0(p, "final/df_fc_doses_ind.Rds"))
 df_fc_doses_combo <- read_rds(paste0(p, "final/df_fc_doses_combo.Rds"))
 
-x <- df_fc_doses_combo %>%
+x <- df_fc_doses_combo |>
     mutate(across(date, ~format(., "%b %Y")))
 
 m <- unique(ts_doses$medication)
@@ -44,17 +44,17 @@ add_chart <- function(pptx, m, slide_layout = "Title and Chart",
                       title_loc = ph_location_label("Title 1"),
                       chart_loc = ph_location_label("Chart Placeholder 7")) {
     
-    df_fcast <- df_fc_doses_combo %>%
-        filter(medication == m) %>%
-        select(medication, date, Forecast = .mean, lo_80, hi_80) %>%
+    df_fcast <- df_fc_doses_combo |>
+        filter(medication == m) |>
+        select(medication, date, Forecast = .mean, lo_80, hi_80) |>
         pivot_longer(cols = c(Forecast, lo_80, hi_80), names_to = "model")
     
-    df_all <- ts_doses %>%
-        as_tibble() %>%
-        filter(medication == m) %>%
-        mutate(model = "Actual") %>%
-        select(medication, date = dose_month, model, value = doses) %>%
-        bind_rows(df_fcast) %>%
+    df_all <- ts_doses |>
+        as_tibble() |>
+        filter(medication == m) |>
+        mutate(model = "Actual") |>
+        select(medication, date = dose_month, model, value = doses) |>
+        bind_rows(df_fcast) |>
         filter(date >= date_cut)
 
     slide_title <- fpar(ftext(paste(m, "forecast"), slide_title_format))
@@ -69,10 +69,10 @@ add_chart <- function(pptx, m, slide_layout = "Title and Chart",
         hi_80 = fp_text(color = "#F2F2F2", font.size = 14, font.family = "Calibri")
     )
     
-    lc <- ms_linechart(df_all, x = "date", y = "value", group = "model") %>%
+    lc <- ms_linechart(df_all, x = "date", y = "value", group = "model") |>
         chart_settings(style = "line") |>
-        chart_ax_x(num_fmt = "[$-en-US]mmm yy;@") %>%
-        chart_ax_y(num_fmt = "#,##0") %>%
+        chart_ax_x(num_fmt = "[$-en-US]mmm yy;@") |>
+        chart_ax_y(num_fmt = "#,##0") |>
         chart_labels(title = "Doses") |> 
         chart_data_fill(values = group_colors) |>
         chart_data_stroke(values = group_colors) |>
@@ -81,15 +81,15 @@ add_chart <- function(pptx, m, slide_layout = "Title and Chart",
         chart_labels_text(values = data_labels) |>
         set_theme(my_theme) 
     
-    pptx %>%
+    pptx |>
         add_slide(layout = slide_layout, master = slide_master) |>
         ph_with(value = slide_title, location = title_loc) |>
         ph_with(value = lc, location = chart_loc) 
 }
 
-pptx <- read_pptx("doc/template.pptx") %>%
-    add_slide(layout = "Title Slide", master = slide_master) %>%
-    ph_with("Forecast for Target Medications", location = ph_location_label("Title 1")) %>%
+pptx <- read_pptx("doc/template.pptx") |>
+    add_slide(layout = "Title Slide", master = slide_master) |>
+    ph_with("Forecast for Target Medications", location = ph_location_label("Title 1")) |>
     ph_with(
         paste(
             format(min(df_fc_doses_combo$date), "%B, %Y"),
