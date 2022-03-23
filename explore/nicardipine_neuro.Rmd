@@ -1,0 +1,54 @@
+---
+title: "Nicardipine (Neuro Service Line)"
+output: html_document
+date: '2022-03-23'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(readxl)
+library(themebg)
+```
+
+```{r}
+df <- read_excel("U:/Data/med_tracking/raw/neuro_nicardipine_utilization.xlsx") |> 
+    rename_all(str_to_lower)
+```
+
+```{r}
+df_sum <- df |> 
+    group_by(dose_month, product) |> 
+    summarize(across(quantity, sum, na.rm = TRUE)) |> 
+    mutate(total_cost = if_else(str_detect(product, "20mg/NS 200ml"), quantity * 43, quantity * 65))
+```
+
+```{r}
+df_pivot <- df |> 
+    group_by(dose_month, nurse_unit, product) |> 
+    summarize(across(quantity, sum, na.rm = TRUE)) |> 
+    mutate(total_cost = if_else(str_detect(product, "20mg/NS 200ml"), quantity * 43, quantity * 65)) |>  
+    pivot_longer(c(quantity, total_cost)) |> 
+    pivot_wider(names_from = dose_month, values_from = value)
+```
+
+
+```{r}
+df_sum |> 
+    ggplot(aes(x = dose_month, y = quantity, color = product)) +
+    geom_line() +
+    scale_color_brewer(NULL, palette = "Set1") +
+    theme_bg() +
+    theme(legend.position = "top")
+```
+
+```{r}
+df_sum |> 
+    ggplot(aes(x = dose_month, y = total_cost, color = product)) +
+    geom_line() +
+    scale_color_brewer(NULL, palette = "Set1") +
+    theme_bg() +
+    theme(legend.position = "top")
+```
+
