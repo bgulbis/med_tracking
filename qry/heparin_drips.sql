@@ -1,0 +1,75 @@
+WITH DOSES AS (
+	SELECT DISTINCT
+		CLINICAL_EVENT.ENCNTR_ID,
+		CASE
+			WHEN ORDERS.TEMPLATE_ORDER_ID = 0 THEN ORDERS.ORDER_ID
+			ELSE ORDERS.TEMPLATE_ORDER_ID
+		END AS ORIG_ORDER_ID,
+		pi_from_gmt(CLINICAL_EVENT.EVENT_END_DT_TM, 'America/Chicago') AS MED_DATETIME,
+		CLINICAL_EVENT.EVENT_ID,
+		pi_get_cv_display(CLINICAL_EVENT.EVENT_CD) AS MEDICATION,
+		CE_MED_RESULT.ADMIN_DOSAGE AS DOSE,
+		pi_get_cv_display(CE_MED_RESULT.DOSAGE_UNIT_CD) AS DOSE_UNIT,
+		CE_MED_RESULT.INFUSION_RATE AS RATE,
+		pi_get_cv_display(CE_MED_RESULT.INFUSION_UNIT_CD) AS RATE_UNIT,
+		pi_get_cv_display(CE_MED_RESULT.ADMIN_ROUTE_CD) AS ROUTE,
+		pi_get_cv_display(CE_MED_RESULT.IV_EVENT_CD) AS IV_EVENT,
+		pi_get_cv_display(ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD) AS NURSE_UNIT
+	FROM 
+		CE_MED_RESULT,
+		CLINICAL_EVENT,
+		ENCNTR_LOC_HIST,
+		ORDERS
+	WHERE
+		CLINICAL_EVENT.EVENT_CD = 37557146 -- heparin
+		AND CLINICAL_EVENT.EVENT_END_DT_TM BETWEEN
+            pi_to_gmt(
+                TO_DATE(
+                    @Prompt('Enter begin date', 'D', , mono, free, persistent, {'07/01/2021 00:00:00'}, User:0), 
+                    pi_get_dm_info_char_gen('Date Format Mask|FT','PI EXP|Systems Configuration|Date Format Mask')
+                ), 
+                pi_time_zone(1, 'America/Chicago')
+            )
+            AND pi_to_gmt(
+                TO_DATE(
+                    @Prompt('Enter end date', 'D', , mono, free, persistent, {'07/01/2022 00:00:00'}, User:1), 
+                    pi_get_dm_info_char_gen('Date Format Mask|FT','PI EXP|Systems Configuration|Date Format Mask')
+                ) - 1/86400, 
+                pi_time_zone(1, 'America/Chicago')
+            )	
+		AND CLINICAL_EVENT.VALID_UNTIL_DT_TM > DATE '2099-12-31'
+		AND CLINICAL_EVENT.EVENT_ID = CE_MED_RESULT.EVENT_ID
+		AND CE_MED_RESULT.IV_EVENT_CD > 0
+		AND CE_MED_RESULT.VALID_UNTIL_DT_TM > DATE '2099-12-31'
+		AND CLINICAL_EVENT.ENCNTR_ID = ENCNTR_LOC_HIST.ENCNTR_ID
+		AND ENCNTR_LOC_HIST.BEG_EFFECTIVE_DT_TM <= CLINICAL_EVENT.EVENT_END_DT_TM
+		AND ENCNTR_LOC_HIST.TRANSACTION_DT_TM = (
+			SELECT MAX(ELH.TRANSACTION_DT_TM)
+			FROM ENCNTR_LOC_HIST ELH
+			WHERE
+				CLINICAL_EVENT.ENCNTR_ID = ELH.ENCNTR_ID
+				AND ELH.TRANSACTION_DT_TM <= CLINICAL_EVENT.EVENT_END_DT_TM
+				AND ELH.ACTIVE_IND = 1
+		)
+		AND ENCNTR_LOC_HIST.END_EFFECTIVE_DT_TM >= CLINICAL_EVENT.EVENT_END_DT_TM
+		AND ENCNTR_LOC_HIST.ACTIVE_IND = 1   
+		AND ENCNTR_LOC_HIST.LOC_FACILITY_CD IN (
+			3310, -- HH HERMANN
+			-- 3796, -- HC Childrens
+			-- 3821, -- HH Clinics
+			3822, -- HH Trans Care
+			3823 -- HH Rehab		
+		)
+		AND CLINICAL_EVENT.ORDER_ID = ORDERS.ORDER_ID
+)
+
+SELECT DISTINCT
+	DOSES.*,
+	PATHWAY_CATALOG.DESCRIPTION AS ORDER_FROM_MPP
+FROM
+	DOSES,
+	ORDERS,
+	PATHWAY_CATALOG
+WHERE
+	DOSES.ORIG_ORDER_ID = ORDERS.ORDER_ID
+	AND ORDERS.PATHWAY_CATALOG_ID = PATHWAY_CATALOG.PATHWAY_CATALOG_ID(+)
