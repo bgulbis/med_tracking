@@ -69,3 +69,57 @@ l <- list(
 )
 
 write.xlsx(l, paste0(f, "final/heparin_drip_data.xlsx"), overwrite = TRUE)
+
+mpp <- c(
+    "Heparin Weight Based Orders Deep Vein Thrombosis Pulmonary Embolism MPP",
+    "Heparin Weight Based Orders for Acute Coronary Syndromes MPP",
+    "Heparin Weight Based Atrial Fibrillation and Stroke Prevention Orders MPP"
+)
+
+df_hep_mpp <- raw_heparin |> 
+    filter(order_from_mpp %in% mpp) |> 
+    mutate(
+        med_month = floor_date(med_datetime, unit = "month"),
+        med_day = floor_date(med_datetime, unit = "day"),
+        med_shift = if_else(hour(med_datetime) >= 7 & hour(med_datetime) < 19, "day", "night")
+    )
+
+df_hep_pts_monthly <- df_hep_mpp |> 
+    distinct(encntr_id, nurse_unit, med_month) |> 
+    count(med_month, nurse_unit, name = "num_pts") |> 
+    filter(med_month >= mdy("07/01/2021")) |> 
+    pivot_wider(names_from = med_month, values_from = num_pts)
+
+df_hep_pts_monthly_shift <- df_hep_mpp |> 
+    distinct(encntr_id, nurse_unit, med_month, med_shift) |> 
+    count(med_month, nurse_unit, med_shift, name = "num_pts") |> 
+    filter(med_month >= mdy("07/01/2021")) |> 
+    pivot_wider(names_from = med_month, values_from = num_pts)
+
+df_hep_pts_daily <- df_hep_mpp |> 
+    distinct(encntr_id, nurse_unit, med_day) |> 
+    count(med_day, nurse_unit, name = "num_pts") |> 
+    filter(med_day >= mdy("07/01/2021")) |> 
+    pivot_wider(names_from = med_day, values_from = num_pts)
+
+df_hep_pts_daily_shift <- df_hep_mpp |> 
+    distinct(encntr_id, nurse_unit, med_day, med_shift) |> 
+    count(med_day, nurse_unit, med_shift, name = "num_pts") |> 
+    filter(med_day >= mdy("07/01/2021")) |> 
+    pivot_wider(names_from = med_day, values_from = num_pts)
+
+df_hep_pts_daily_avg <- df_hep_mpp |> 
+    distinct(encntr_id, nurse_unit, med_day, med_month) |> 
+    count(med_day, med_month, nurse_unit, name = "num_pts") |> 
+    filter(med_day >= mdy("07/01/2021")) |> 
+    group_by(med_month, nurse_unit) |> 
+    summarize(across(num_pts, mean, na.rm = TRUE), .groups = "drop") |> 
+    mutate(across(num_pts, round, digits = 1)) |> 
+    pivot_wider(names_from = med_month, values_from = num_pts)
+
+# l2 <- list(
+#     "daily_avg" = df_hep_pts_daily_avg,
+#     "daily_shift" = df_hep_pts_daily_shift
+# )
+
+write.xlsx(df_hep_pts_daily_avg, paste0(f, "final/heparin_pts_daily_avg.xlsx"), overwrite = TRUE)
