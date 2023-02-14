@@ -27,7 +27,7 @@ WITH DOSES AS (
 		pi_get_cv_display(ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD) AS NURSE_UNIT,
 		CASE
 			WHEN pi_get_cv_display(ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD) = 'HH STIC' THEN 'HH S STIC'
-			WHEN pi_get_cv_display(ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD) IN ('HH SIMU', 'HH S1MU') THEN 'HH S SIMU'
+			WHEN pi_get_cv_display(ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD) IN ('HH SIMU', 'HH S1MU', 'HH S SIMU') THEN 'HH S TIMU'
 			WHEN pi_get_cv_display(ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD) IN ('HH 6EJP', 'HH 6WJP') THEN 'HH S OTAC'
 			WHEN pi_get_cv_display(ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD) = 'HH 8NJP' THEN 'HH S SITU'
 			WHEN pi_get_cv_display(ENCNTR_LOC_HIST.LOC_NURSE_UNIT_CD) = 'HH 8WJP' THEN 'HH S BURN'
@@ -52,10 +52,13 @@ WITH DOSES AS (
 			37557746, -- OXYcodone
 			37558147, -- tamsulosin
 			37558239, -- tramadol
-			37556844 -- enoxaparin
+			37556844, -- enoxaparin
+			48069083, -- lidocaine topical
+			37556812, -- dronabinol
+			37557546 -- methocarbamol
 		)
 		AND CLINICAL_EVENT.EVENT_END_DT_TM BETWEEN
-			pi_to_gmt(ADD_MONTHS(TRUNC(ADD_MONTHS(SYSDATE, 6), 'YEAR'), -18), 'America/Chicago')
+			pi_to_gmt(ADD_MONTHS(TRUNC(ADD_MONTHS(SYSDATE, 6), 'YEAR'), -30), 'America/Chicago')
 			AND pi_to_gmt(TRUNC(SYSDATE, 'MONTH') - 1/86400, 'America/Chicago')
 		AND CLINICAL_EVENT.VALID_UNTIL_DT_TM > DATE '2099-12-31'
 		AND CLINICAL_EVENT.EVENT_ID = CE_MED_RESULT.EVENT_ID
@@ -84,6 +87,10 @@ WITH DOSES AS (
 					9022649 -- IVP
 				) 
 			)
+/* 			OR (
+				CLINICAL_EVENT.EVENT_CD = 48069083 -- lidocaine
+				AND CE_MED_RESULT.ADMIN_ROUTE_CD = 9022909 -- TOP
+			) */
 			OR (
 				CLINICAL_EVENT.EVENT_CD NOT IN (
 					37556009, -- acetaminophen
@@ -91,6 +98,7 @@ WITH DOSES AS (
 					37556956, -- FENTanyl
 					37557589, -- midazolam
 					37557925 -- propofol
+					-- 37557428 -- lidocaine
 				)
 			)
 		)
