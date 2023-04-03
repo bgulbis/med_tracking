@@ -7,7 +7,7 @@ library(fabletools)
 # set path to data files
 f <- set_data_path("med_tracking", "fy23")
 
-if (!dir.exists(p)) {
+if (!dir.exists(f)) {
     stop("Network drive not available.")
 }
 
@@ -121,6 +121,6 @@ for (i in 1:length(m)) {
     pptx <- add_chart(pptx, m[i])
 }
 
-print(pptx, target = paste0(p, "report/forecast_slides.pptx"))
+print(pptx, target = paste0(f, "report/forecast_slides.pptx"))
     
     
