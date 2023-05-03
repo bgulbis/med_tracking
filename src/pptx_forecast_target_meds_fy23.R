@@ -104,14 +104,16 @@ add_chart <- function(pptx, m, slide_layout = "Title and Chart",
         ph_with(value = lc, location = chart_loc) 
 }
 
+date_range <- filter(df_fc_doses_combo, medication == "Albumin") 
+    
 pptx <- read_pptx("doc/template.pptx") |>
     add_slide(layout = "Title Slide", master = "Office Theme") |>
     ph_with("Forecast for Target Medications", location = ph_location_label("Title 1")) |>
     ph_with(
         paste(
-            format(min(df_fc_doses_combo$date), "%B, %Y"),
+            format(min(date_range$date), "%B, %Y"),
             "to",
-            format(max(df_fc_doses_combo$date), "%B, %Y"),
+            format(max(date_range$date), "%B, %Y"),
             "\nBrian Gulbis, PharmD, BCPS"
         ),
         location = ph_location_label("Subtitle 2")

@@ -55,13 +55,30 @@ my_theme <- mschart_theme(
 
 slide_title_format <- fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri")
 
-ts_doses <- df_meds |>
-    mutate(across(dose_month, as.Date)) |>
-    group_by(medication, dose_month) |>
-    summarize(across(c(patients, doses, quantity), \(x) sum(x, na.rm = TRUE)), .groups = "drop_last") |>
-    mutate(month = yearmonth(dose_month)) |>
-    as_tsibble(key = medication, index = month) |>
-    fill_gaps(doses = 0L, .full = start()) |>
+# target_date <- df_meds |> 
+#     filter(medication == "Albumin") |>
+#     summarize(across(dose_month, max)) |> 
+#     pull()
+# 
+# add_end_date <- df_meds |> 
+#     group_by(medication) |> 
+#     summarize(across(dose_month, max)) |> 
+#     filter(dose_month < target_date) |> 
+#     mutate(
+#         dose_month = target_date,
+#         doses = 0L
+#     )
+
+# 
+# ts_doses <- df_meds |>
+#     bind_rows(add_end_date) |> 
+#     mutate(across(dose_month, as.Date)) |>
+#     group_by(medication, dose_month) |>
+#     summarize(across(c(patients, doses, quantity), \(x) sum(x, na.rm = TRUE)), .groups = "drop_last") |>
+#     mutate(month = yearmonth(dose_month)) |>
+#     as_tsibble(key = medication, index = month) |>
+#     fill_gaps(doses = 0L, .full = start()) |>
+ts_doses <- read_rds(paste0(f, "final/ts_doses.Rds")) |> 
     as_tibble() |>
     mutate(
         across(dose_month, \(x) coalesce(x, ym(month))),

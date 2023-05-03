@@ -39,7 +39,22 @@ df_meds <- raw_df |>
 
 meds <- distinct(df_meds, medication)
 
+target_date <- df_meds |> 
+    filter(medication == "Albumin") |>
+    summarize(across(dose_month, max)) |> 
+    pull()
+
+add_end_date <- df_meds |> 
+    group_by(medication) |> 
+    summarize(across(dose_month, max)) |> 
+    filter(dose_month < target_date) |> 
+    mutate(
+        dose_month = target_date,
+        doses = 0L
+    )
+
 ts_doses <- df_meds |>
+    bind_rows(add_end_date) |> 
     mutate(across(dose_month, as.Date)) |>
     group_by(medication, dose_month) |>
     summarize(across(c(patients, doses, quantity), \(x) sum(x, na.rm = TRUE)), .groups = "drop") |>
@@ -139,7 +154,7 @@ df_fc_doses_ind <- df_fc_doses |>
 
 df_doses_hilo <- df_fc_doses_ind |>
     group_by(medication, month) |>
-    summarize(across(c(lo_80, hi_80, lo_95, hi_95), mean, na.rm = TRUE))
+    summarize(across(c(lo_80, hi_80, lo_95, hi_95), \(x) mean(x, na.rm = TRUE)))
 
 df_fc_doses_combo <- df_fc_doses |>
     as_tibble() |>
