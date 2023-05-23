@@ -13,16 +13,18 @@ raw_df <- get_xlsx_data(paste0(f, "raw"), "mhhs_purchases_04-2022_03-2023") |>
         prod_desc = `product description`,
         account_name = `account name`,
         shipped_qty = `shipped qty`,
-        units_shpiped = `total shipped ml, tabs or units`
+        unit_size_qty = `unit size qty`,
+        units_shipped = `total shipped ml, tabs or units`
     )
 
 df_prod_sum <- raw_df |> 
+    mutate(across(units_shipped, \(x) coalesce(x, shipped_qty * unit_size_qty))) |> 
     group_by(prod_desc, account_name) |> 
     summarize(
         shipments = sum(shipped_qty, na.rm = TRUE),
-        quantity = sum(units_shpiped, na.rm = TRUE),
+        quantity = sum(units_shipped, na.rm = TRUE),
         cost = sum(`invoice price`),
-        # across(c(shipped_qty, units_shpiped, `invoice price`), \(x) sum(x, na.rm = TRUE)),
+        # across(c(shipped_qty, units_shipped, `invoice price`), \(x) sum(x, na.rm = TRUE)),
         .groups = "drop_last"
     ) |> 
     summarize(
@@ -80,6 +82,7 @@ df_totals <- df_prod_sum |>
             str_detect(prod_lower, "isosorbide d") ~ "isosorbide_dinitrate",
             str_detect(prod_lower, "isoso(rb|br)ide m") ~ "isosorbide_mononitrate",
             str_detect(prod_lower, "^nitro") ~ "nitroglycerin",
+            str_detect(prod_lower, "nitroprus") ~ "nitroprusside",
             TRUE ~ word(prod_lower, 1)
         ),
         strength = case_when(
