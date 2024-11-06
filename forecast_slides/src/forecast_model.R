@@ -3,6 +3,8 @@ library(readxl)
 library(lubridate)
 library(mbohelpr)
 library(tsibble)
+library(xlsx)
+library(rstudioapi)
 library(fable)
 library(fasster)
 library(feasts)
@@ -16,37 +18,54 @@ options(future.rng.onMisuse = "ignore")
 
 f <- set_data_path("med_tracking", "forecast_slides")
 
-df_cerner <- read_excel(paste0(f, "final/cerner_data.xlsx"))
+df_cerner <- read_excel(paste0(f, "final/cerner_data.xlsx")) |> 
+    mutate(across(dose_month, as.Date))
 
+zz_meds_cerner <- distinct(df_cerner, medication) |> arrange(medication)
 # raw_data <- get_xlsx_data(paste0(f, "raw"), "target_medications")
 
-library(xlsx)
-library(rstudioapi)
-df_epic <- read.xlsx(paste0(f, "raw/target_medications_2024-10.xlsx"), sheetIndex = 1, startRow = 16, header = FALSE, password = rstudioapi::askForPassword("Input password for excel sheet."))
 
-df_meds <- raw_df |>
+df_epic <- read.xlsx(paste0(f, "raw/target_medications_2024-10.xlsx"), sheetIndex = 1, startRow = 39, header = FALSE,
+                     # row.names = c("month_begin", "month_end", "medication", "doses", "patients"),
+                     password = rstudioapi::askForPassword("Input password"))
+
+colnames(df_epic) <- c("month_begin", "month_end", "medication", "route", "doses", "patients")
+
+zz_meds_epic <- distinct(df_epic, medication) |> arrange(medication)
+zz_route <- distinct(df_epic, route) |> arrange(route)
+
+df_meds <- df_epic |>
     mutate(
-        across(medication, str_to_title),
-        across(medication, \(x) str_replace_all(x, pattern = " Human", replacement = "")),
-        route_group = case_when(
-            route %in% c("DHT", "GT", "NG", "NJ", "PEG", "PO") ~ "PO",
-            route %in% c("INJ", "IV", "IV Central", "IV Lock", "IVP", "IVPB", "DIALYSIS") ~ "IV",
-            route %in% c("IM", "intra-ARTICULAR", "INTRAARTERIAL", "INTRADERM", "INTRATHECAL", "intraVENTRICular", "INTRAVESICULAR", "SUB-Q") ~ "INJ",
-            TRUE ~ "Other"
-        ),
-        inpt = encntr_type %in% c("Inpatient", "Observation", "Emergency"),
-        medication = case_when(
-            medication == "Isavuconazonium" & route_group == "PO" ~ "Isavuconazonium (PO)",
-            medication == "Isavuconazonium" ~ "Isavuconazonium (IV)",
-            TRUE ~ medication
+        across(
+            medication, \(x) case_when(
+                medication == "Albumin Human" ~ "Albumin",
+                medication == "Amphotericin B Liposome" ~ "Amphotericin B Liposomal",
+                medication == "Anti-Thymocyte Glob (Rabbit)" ~ "Anti-Thymocyte Globulin (Rabbit)",
+                medication == "Bictegravir-Emtricitab-Tenofov" ~ "Bictegravir/Emtricitabine/Tenofovir",
+                medication == "Cangrelor Tetrasodium" ~ "Cangrelor",
+                medication == "Cefiderocol Sulfate Tosylate" ~ "Cefiderocol",
+                medication == "cefTAZidime-Avibactam" ~ "Ceftazidime-Avibactam",
+                medication == "Daratumumab-Hyaluronidase-fihj" ~ "Daratumumab-Hyaluronidase",
+                medication == "Isavuconazonium Sulfate" & route == "Oral" ~ "Isavuconazonium (PO)",
+                medication == "Isavuconazonium Sulfate" ~ "Isavuconazonium (IV)",
+                medication == "Sugammadex Sodium" ~ "Sugammadex",
+                str_detect(medication, "Thrombin") & route == "Apply externally" ~ "Thrombin Topical",
+                .default = medication
+            )
         )
-    ) |>
+    ) |> 
+    select(medication, dose_month = month_begin, patients, doses) |> 
+    bind_rows(df_cerner) |> 
+    summarize(
+        across(c(patients, doses), sum),
+        .by = c(medication, dose_month)
+    ) |> 
     arrange(medication, dose_month)
 
 meds <- distinct(df_meds, medication)
 
 target_date <- df_meds |> 
-    filter(medication == "Albumin") |>
+    # filter(medication == "Albumin") |>
     summarize(across(dose_month, max)) |> 
     pull()
 
@@ -61,10 +80,10 @@ add_end_date <- df_meds |>
 
 ts_doses <- df_meds |>
     bind_rows(add_end_date) |> 
-    mutate(across(dose_month, as.Date)) |>
-    group_by(medication, dose_month) |>
-    summarize(across(c(patients, doses, quantity), \(x) sum(x, na.rm = TRUE)), .groups = "drop") |>
-    # summarize(across(c(patients, doses, quantity), sum, na.rm = TRUE)) |>
+    summarize(
+        across(c(patients, doses), \(x) sum(x, na.rm = TRUE)), 
+        .by = c(medication, dose_month)
+    ) |>
     mutate(month = yearmonth(dose_month)) |>
     as_tsibble(key = medication, index = month) |>
     fill_gaps(doses = 0L) |>
