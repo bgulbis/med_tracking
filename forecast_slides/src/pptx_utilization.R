@@ -194,6 +194,9 @@ chart_loc <- ph_location_label("Chart Placeholder 7")
 # layout_properties(test_pptx, layout = slide_layout)
 # layout_properties(test_pptx, layout = "Title Slide")
 
+curr_month <- df_data |> 
+    summarize(across(dose_month, \(x) max(x, na.rm = TRUE))) |> 
+    pull()
 
 pptx <- read_pptx("doc/template.pptx") |>
     add_slide(layout = "Title Slide", master = slide_master) |>
@@ -201,7 +204,7 @@ pptx <- read_pptx("doc/template.pptx") |>
     ph_with(
         paste(
             "Data through:",
-            format(max(df_data$dose_month), "%B, %Y"),
+            format(curr_month, "%B, %Y"),
             "\nBrian Gulbis, PharmD, BCPS"
         ),
         location = ph_location_label("Subtitle 2")
