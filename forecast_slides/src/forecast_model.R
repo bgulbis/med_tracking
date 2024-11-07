@@ -54,6 +54,7 @@ df_meds <- df_epic |>
             )
         )
     ) |> 
+    filter(!medication %in% c("Thrombin", "Thrombin (Recombinant)")) |> 
     select(medication, dose_month = month_begin, patients, doses) |> 
     bind_rows(df_cerner) |> 
     summarize(
@@ -92,13 +93,15 @@ ts_doses <- df_meds |>
 plan("multisession")
 tic()
 
+arima_approx <- TRUE
+
 fit_doses <- ts_doses |> 
     model(
-        ARIMA = ARIMA(doses, stepwise = FALSE, approximation = FALSE),
+        ARIMA = ARIMA(doses, stepwise = arima_approx, approximation = arima_approx),
         ARIMA_D = decomposition_model(
             STL(log(doses + 1)),
-            ARIMA(trend, stepwise = FALSE, approximation = FALSE),
-            ARIMA(remainder, stepwise = FALSE, approximation = FALSE)
+            ARIMA(trend, stepwise = arima_approx, approximation = arima_approx),
+            ARIMA(remainder, stepwise = arima_approx, approximation = arima_approx)
         ),
         ETS = ETS(doses),
         ETS_D = decomposition_model(
@@ -121,9 +124,9 @@ plan("sequential")
 
 # df_acc <- accuracy(fit_doses)
 # 
-# df_acc2 <- df_acc |> 
-#     select(medication, .model, RMSE) |> 
-#     filter(!is.nan(RMSE)) |> 
+# df_acc2 <- df_acc |>
+#     select(medication, .model, RMSE) |>
+#     filter(!is.nan(RMSE)) |>
 #     pivot_wider(names_from = .model, values_from = RMSE)
 
 # plan("sequential")
@@ -178,8 +181,11 @@ df_fc_doses_ind <- df_fc_doses |>
     )
 
 df_doses_hilo <- df_fc_doses_ind |>
-    group_by(medication, month) |>
-    summarize(across(c(lo_80, hi_80, lo_95, hi_95), \(x) mean(x, na.rm = TRUE)))
+    # group_by(medication, month) |>
+    summarize(
+        across(c(lo_80, hi_80, lo_95, hi_95), \(x) mean(x, na.rm = TRUE)),
+        .by = c(medication, month)
+    )
 
 df_fc_doses_combo <- df_fc_doses |>
     as_tibble() |>
