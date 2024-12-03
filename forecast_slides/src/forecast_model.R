@@ -24,12 +24,28 @@ df_cerner <- read_excel(paste0(f, "final/cerner_data.xlsx")) |>
 zz_meds_cerner <- distinct(df_cerner, medication) |> arrange(medication)
 # raw_data <- get_xlsx_data(paste0(f, "raw"), "target_medications")
 
+get_pwd_data <- function(path, pattern, colnm, sheetIndex = 1, startRow = 39, header = FALSE) {
+    f <- list.files(path, pattern, full.names = TRUE)
+    pwd <- rstudioapi::askForPassword("Input password")
+    
+    df <- f |> 
+        purrr::map_df(
+            xlsx::read.xlsx,
+            sheetIndex = sheetIndex,
+            startRow = startRow,
+            header = header,
+            password = pwd
+        ) |> 
+        dplyr::distinct()
+    
+    colnames(df) <- colnm
+    
+    df
+}
 
-df_epic <- read.xlsx(paste0(f, "raw/target_medications_2024-10.xlsx"), sheetIndex = 1, startRow = 39, header = FALSE,
-                     # row.names = c("month_begin", "month_end", "medication", "doses", "patients"),
-                     password = rstudioapi::askForPassword("Input password"))
+colnm <- c("month_begin", "month_end", "medication", "route", "doses", "patients")
 
-colnames(df_epic) <- c("month_begin", "month_end", "medication", "route", "doses", "patients")
+df_epic <- get_pwd_data(paste0(f, "raw/"), "target_medications", colnm)
 
 zz_meds_epic <- distinct(df_epic, medication) |> arrange(medication)
 zz_route <- distinct(df_epic, route) |> arrange(route)
