@@ -24,7 +24,7 @@ df_cerner <- read_excel(paste0(f, "final/cerner_data.xlsx")) |>
 zz_meds_cerner <- distinct(df_cerner, medication) |> arrange(medication)
 # raw_data <- get_xlsx_data(paste0(f, "raw"), "target_medications")
 
-get_pwd_data <- function(path, pattern, colnm, coltype, sheetIndex = 1, startRow = 39, header = FALSE) {
+get_pwd_data <- function(path, pattern, colnm, coltype, sheetIndex = 1, startRow = 41, header = FALSE) {
     f <- list.files(path, pattern, full.names = TRUE)
     pwd <- rstudioapi::askForPassword("Input password")
     
@@ -67,6 +67,7 @@ df_meds <- df_epic |>
                 medication == "Isavuconazonium Sulfate" & route == "Oral" ~ "Isavuconazonium (PO)",
                 medication == "Isavuconazonium Sulfate" ~ "Isavuconazonium (IV)",
                 medication == "Sugammadex Sodium" ~ "Sugammadex",
+                medication == "Ravulizumab-cwvz" ~ "Ravulizumab",
                 str_detect(medication, "Thrombin") & route == "Apply externally" ~ "Thrombin Topical",
                 .default = medication
             )
@@ -108,12 +109,16 @@ ts_doses <- df_meds |>
     fill_gaps(doses = 0L) |>
     mutate(across(dose_month, \(x) if_else(is.na(x), as.Date(month), x)))
 
+# ts_doses_thrombin <- ts_doses |> 
+#     filter(medication != "Thrombin Topical" | (medication == "Thrombin Topical" & dose_month >= as.Date(mdy("10/1/2024"))))
+
 plan("multisession")
 tic()
 
 arima_approx <- TRUE
 
 fit_doses <- ts_doses |> 
+    filter(medication != "Thrombin Topical" | (medication == "Thrombin Topical" & dose_month >= as.Date(mdy("10/1/2024")))) |> 
     model(
         ARIMA = ARIMA(doses, stepwise = arima_approx, approximation = arima_approx),
         ARIMA_D = decomposition_model(
@@ -135,7 +140,12 @@ fit_doses <- ts_doses |>
             VAR(remainder)
         )
     ) |> 
-    mutate(Forecast = (ARIMA + ETS + VAR + ARIMA_D + ETS_D + VAR_D) / 6)
+    mutate(
+        Forecast = if_else(
+            medication == "Thrombin Topical", 
+            (ARIMA + ETS + ARIMA_D + ETS_D) / 4, 
+            (ARIMA + ETS + VAR + ARIMA_D + ETS_D + VAR_D) / 6)
+    )
 
 toc()
 plan("sequential")
