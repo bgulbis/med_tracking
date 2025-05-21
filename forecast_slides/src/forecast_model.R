@@ -3,8 +3,8 @@ library(readxl)
 library(lubridate)
 library(mbohelpr)
 library(tsibble)
-library(xlsx)
-library(rstudioapi)
+# library(xlsx)
+# library(rstudioapi)
 library(fable)
 library(fasster)
 library(feasts)
@@ -24,30 +24,32 @@ df_cerner <- read_excel(paste0(f, "final/cerner_data.xlsx")) |>
 zz_meds_cerner <- distinct(df_cerner, medication) |> arrange(medication)
 # raw_data <- get_xlsx_data(paste0(f, "raw"), "target_medications")
 
-get_pwd_data <- function(path, pattern, colnm, coltype, sheetIndex = 1, startRow = 41, header = FALSE) {
-    f <- list.files(path, pattern, full.names = TRUE)
-    pwd <- rstudioapi::askForPassword("Input password")
+# get_pwd_data <- function(path, pattern, colnm, coltype, sheetIndex = 1, startRow = 41, header = FALSE) {
+#     f <- list.files(path, pattern, full.names = TRUE)
+#     pwd <- rstudioapi::askForPassword("Input password")
     
-    df <- f |> 
-        purrr::map_df(
-            xlsx::read.xlsx,
-            sheetIndex = sheetIndex,
-            startRow = startRow,
-            colClasses = coltype,
-            header = header,
-            password = pwd
-        ) |> 
-        dplyr::distinct()
+#     df <- f |> 
+#         purrr::map_df(
+#             xlsx::read.xlsx,
+#             sheetIndex = sheetIndex,
+#             startRow = startRow,
+#             colClasses = coltype,
+#             header = header,
+#             password = pwd
+#         ) |> 
+#         dplyr::distinct()
     
-    colnames(df) <- colnm
+#     colnames(df) <- colnm
     
-    df
-}
+#     df
+# }
 
 colnm <- c("month_begin", "month_end", "medication", "route", "doses", "patients")
-coltype <- c("Date", "Date", "character", "character", "numeric", "numeric")
+coltype <- c("date", "date", "text", "text", "numeric", "numeric")
 
-df_epic <- get_pwd_data(paste0(f, "raw/"), "target_medications", colnm, coltype)
+# df_epic <- get_pwd_data(paste0(f, "raw/"), "target_medications", colnm, coltype)
+
+df_epic <- get_xlsx_data(paste0(f, "raw/"), "target_medications", 1, colnm, coltype, skip = 41)
 
 zz_meds_epic <- distinct(df_epic, medication) |> arrange(medication)
 zz_route <- distinct(df_epic, route) |> arrange(route)
