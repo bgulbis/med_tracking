@@ -14,6 +14,7 @@ library(tictoc)
 # library(themebg)
 # library(plotly)
 
+tic()
 options(future.rng.onMisuse = "ignore")
 
 f <- set_data_path("med_tracking", "forecast_slides")
@@ -115,8 +116,8 @@ ts_doses <- df_meds |>
 #     filter(medication != "Thrombin Topical" | (medication == "Thrombin Topical" & dose_month >= as.Date(mdy("10/1/2024"))))
 
 plan("multisession")
-tic()
-
+# tic()
+# print("creating models...")
 arima_approx <- TRUE
 
 fit_doses <- ts_doses |> 
@@ -149,7 +150,8 @@ fit_doses <- ts_doses |>
             (ARIMA + ETS + VAR + ARIMA_D + ETS_D + VAR_D) / 6)
     )
 
-toc()
+# toc()
+# print("done...")
 plan("sequential")
 
 # df_acc <- accuracy(fit_doses)
@@ -165,11 +167,13 @@ write_rds(fit_doses, paste0(f, "final/fit_doses.Rds"))
 
 # fit_doses <- read_rds("data/final/fit_doses.Rds")
 
-tic()
 plan("multisession")
+# tic()
+# print("fitting...")
 fc_doses <- forecast(fit_doses, h = 12)
+# print("done...")
+# toc()
 plan("sequential")
-toc()
 
 write_rds(fc_doses, paste0(f, "final/fc_doses.Rds"))
 
@@ -230,3 +234,5 @@ df_fc_doses_combo <- df_fc_doses |>
 write_rds(ts_doses, paste0(f, "final/ts_doses.Rds"))
 write_rds(df_fc_doses_ind, paste0(f, "final/df_fc_doses_ind.Rds"))
 write_rds(df_fc_doses_combo, paste0(f, "final/df_fc_doses_combo.Rds"))
+
+toc()
