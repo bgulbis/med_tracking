@@ -50,7 +50,7 @@ coltype <- c("date", "date", "text", "text", "numeric", "numeric")
 
 # df_epic <- get_pwd_data(paste0(f, "raw/"), "target_medications", colnm, coltype)
 
-df_epic <- get_xlsx_data(paste0(f, "raw/"), "target_medications", 1, colnm, coltype, skip = 41)
+df_epic <- get_xlsx_data(paste0(f, "raw/"), "target_medications", 1, colnm, coltype, skip = 40)
 
 zz_meds_epic <- distinct(df_epic, medication) |> arrange(medication)
 zz_route <- distinct(df_epic, route) |> arrange(route)
