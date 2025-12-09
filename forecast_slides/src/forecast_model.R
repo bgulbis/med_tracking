@@ -107,6 +107,7 @@ ts_doses <- df_meds |>
         across(c(patients, doses), \(x) sum(x, na.rm = TRUE)), 
         .by = c(medication, dose_month)
     ) |>
+    filter(medication != "Palivizumab") |> 
     mutate(month = yearmonth(dose_month)) |>
     as_tsibble(key = medication, index = month) |>
     fill_gaps(doses = 0L) |>
