@@ -62,9 +62,9 @@ df_prod_sum <- raw_df |>
     ) |> 
     filter(shipments > 0)
 
-x <- raw_df |> 
-    filter(str_detect(prod_desc, "ENTRESTO")) |> 
-    distinct(prod_desc)
+# x <- raw_df |> 
+#     filter(str_detect(prod_desc, "ENTRESTO")) |> 
+#     distinct(prod_desc)
 
 df_totals <- df_prod_sum |> 
     mutate(
