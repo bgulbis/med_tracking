@@ -50,9 +50,13 @@ coltype <- c("date", "date", "text", "text", "numeric", "numeric")
 
 # df_epic <- get_pwd_data(paste0(f, "raw/"), "target_medications", colnm, coltype)
 
-df_epic <- get_xlsx_data(paste0(f, "raw/"), "target_medications", 1, colnm, coltype, skip = 40)
+# df_epic2 <- get_xlsx_data(paste0(f, "raw/"), "target_medications_20", 1, colnm, coltype, skip = 40)
+df_epic <- read_excel(paste0(f, "raw/target_medications_epic.xlsx"), sheet = 1, col_names = colnm, 
+                      col_types = coltype, skip = 530) |> 
+    mutate(across(month_begin, \(x) floor_date(x, unit = "month")))
 
 zz_meds_epic <- distinct(df_epic, medication) |> arrange(medication)
+# zz_meds_epic2 <- distinct(df_epic2, medication) |> arrange(medication)
 zz_route <- distinct(df_epic, route) |> arrange(route)
 
 df_meds <- df_epic |>
@@ -67,10 +71,13 @@ df_meds <- df_epic |>
                 medication == "Cefiderocol Sulfate Tosylate" ~ "Cefiderocol",
                 medication == "cefTAZidime-Avibactam" ~ "Ceftazidime-Avibactam",
                 medication == "Daratumumab-Hyaluronidase-fihj" ~ "Daratumumab-Hyaluronidase",
+                medication == "Eculizumab-aagh" ~ "Eculizumab",
                 medication == "Isavuconazonium Sulfate" & route == "Oral" ~ "Isavuconazonium (PO)",
                 medication == "Isavuconazonium Sulfate" ~ "Isavuconazonium (IV)",
+                medication == "Pembrolizumab-Berahyalur-pmph" ~ "Pembrolizumab-Berahyaluronidase",
                 medication == "Sugammadex Sodium" ~ "Sugammadex",
                 medication == "Ravulizumab-cwvz" ~ "Ravulizumab",
+                medication == "Tebentafusp-tebn" ~ "Tebentafusp",
                 str_detect(medication, "Thrombin") & route == "Apply externally" ~ "Thrombin Topical",
                 .default = medication
             )
@@ -93,8 +100,7 @@ target_date <- df_meds |>
     pull()
 
 add_end_date <- df_meds |> 
-    group_by(medication) |> 
-    summarize(across(dose_month, max)) |> 
+    summarize(across(dose_month, max), .by = medication) |> 
     filter(dose_month < target_date) |> 
     mutate(
         dose_month = target_date,
@@ -107,7 +113,7 @@ ts_doses <- df_meds |>
         across(c(patients, doses), \(x) sum(x, na.rm = TRUE)), 
         .by = c(medication, dose_month)
     ) |>
-    filter(medication != "Palivizumab") |> 
+    filter(!medication %in% c("Palivizumab", "Tebentafusp", "Pembrolizumab-Berahyaluronidase")) |> 
     mutate(month = yearmonth(dose_month)) |>
     as_tsibble(key = medication, index = month) |>
     fill_gaps(doses = 0L) |>

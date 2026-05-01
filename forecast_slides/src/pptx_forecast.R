@@ -29,7 +29,7 @@ my_theme <- mschart_theme(
 slide_title_format <- fp_text(color = "#404040", font.size = 24, bold = FALSE, font.family = "Calibri")
 
 ts_doses <- read_rds(paste0(f, "final/ts_doses.Rds"))
-# df_fc_doses_ind <- read_rds(paset0(f, "final/df_fc_doses_ind.Rds"))
+# df_fc_doses_ind <- read_rds(paste0(f, "final/df_fc_doses_ind.Rds"))
 df_fc_doses_combo <- read_rds(paste0(f, "final/df_fc_doses_combo.Rds"))
 
 x <- df_fc_doses_combo |>
