@@ -52,7 +52,7 @@ coltype <- c("date", "date", "text", "text", "numeric", "numeric")
 
 # df_epic2 <- get_xlsx_data(paste0(f, "raw/"), "target_medications_20", 1, colnm, coltype, skip = 40)
 df_epic <- read_excel(paste0(f, "raw/target_medications_epic.xlsx"), sheet = 1, col_names = colnm, 
-                      col_types = coltype, skip = 530) |> 
+                      col_types = coltype, skip = 583) |> 
     mutate(across(month_begin, \(x) floor_date(x, unit = "month")))
 
 zz_meds_epic <- distinct(df_epic, medication) |> arrange(medication)
@@ -125,10 +125,11 @@ ts_doses <- df_meds |>
 plan("multisession")
 # tic()
 # print("creating models...")
-arima_approx <- TRUE
+arima_approx <- FALSE
 
 fit_doses <- ts_doses |> 
     filter(medication != "Thrombin Topical" | (medication == "Thrombin Topical" & dose_month >= as.Date(mdy("10/1/2024")))) |> 
+    # filter(dose_month < as.Date(mdy("6/1/2026"))) |> 
     model(
         ARIMA = ARIMA(doses, stepwise = arima_approx, approximation = arima_approx),
         ARIMA_D = decomposition_model(
@@ -148,14 +149,40 @@ fit_doses <- ts_doses |>
             STL(log(doses + 1) ~ season(window = Inf)),
             VAR(trend),
             VAR(remainder)
+        ),
+        Forecast = combination_model(
+            ARIMA(doses, stepwise = arima_approx, approximation = arima_approx),
+            decomposition_model(
+                STL(log(doses + 1)),
+                ARIMA(trend, stepwise = arima_approx, approximation = arima_approx),
+                ARIMA(remainder, stepwise = arima_approx, approximation = arima_approx)
+            ),
+            ETS(doses),
+            decomposition_model(
+                STL(log(doses + 1) ~ season(window = Inf)),
+                ETS(trend ~ season("N")),
+                ETS(remainder ~ season("N"))
+            ),
+            # NNAR = NNETAR(log(doses) ~ AR(), n_networks = 30),
+            VAR(doses),
+            decomposition_model(
+                STL(log(doses + 1) ~ season(window = Inf)),
+                VAR(trend),
+                VAR(remainder)
+            )
         )
-    ) |> 
-    mutate(
-        Forecast = if_else(
-            medication == "Thrombin Topical", 
-            (ARIMA + ETS + ARIMA_D + ETS_D) / 4, 
-            (ARIMA + ETS + VAR + ARIMA_D + ETS_D + VAR_D) / 6)
     )
+
+# mutate(
+    #     Forecast = if_else(
+    #         medication == "Thrombin Topical", 
+    #         combination_model(
+    #             
+    #         )
+    #         # (ARIMA + ETS + ARIMA_D + ETS_D) / 4, 
+    #         # (ARIMA + ETS + VAR + ARIMA_D + ETS_D + VAR_D) / 6)
+    #     )
+    # )
 
 # toc()
 # print("done...")
