@@ -51,8 +51,12 @@ coltype <- c("date", "date", "text", "text", "numeric", "numeric")
 # df_epic <- get_pwd_data(paste0(f, "raw/"), "target_medications", colnm, coltype)
 
 # df_epic2 <- get_xlsx_data(paste0(f, "raw/"), "target_medications_20", 1, colnm, coltype, skip = 40)
+
+num_months = lubridate::interval(mdy("10/1/2024"), Sys.Date()) %/% months(1)
+rowskip = (num_months * 26) + 38
+
 df_epic <- read_excel(paste0(f, "raw/target_medications_epic.xlsx"), sheet = 1, col_names = colnm, 
-                      col_types = coltype, skip = 583) |> 
+                      col_types = coltype, skip = rowskip) |> 
     mutate(across(month_begin, \(x) floor_date(x, unit = "month")))
 
 zz_meds_epic <- distinct(df_epic, medication) |> arrange(medication)
