@@ -53,7 +53,7 @@ coltype <- c("date", "date", "text", "text", "numeric", "numeric")
 # df_epic2 <- get_xlsx_data(paste0(f, "raw/"), "target_medications_20", 1, colnm, coltype, skip = 40)
 
 num_months = lubridate::interval(mdy("10/1/2024"), Sys.Date()) %/% months(1)
-rowskip = (num_months * 26) + 38
+rowskip = (num_months * 26) + 39
 
 df_epic <- read_excel(paste0(f, "raw/target_medications_epic.xlsx"), sheet = 1, col_names = colnm, 
                       col_types = coltype, skip = rowskip) |> 
