@@ -135,25 +135,25 @@ fit_doses <- ts_doses |>
     filter(medication != "Thrombin Topical" | (medication == "Thrombin Topical" & dose_month >= as.Date(mdy("10/1/2024")))) |> 
     # filter(dose_month < as.Date(mdy("6/1/2026"))) |> 
     model(
-        ARIMA = ARIMA(doses, stepwise = arima_approx, approximation = arima_approx),
-        ARIMA_D = decomposition_model(
-            STL(log(doses + 1)),
-            ARIMA(trend, stepwise = arima_approx, approximation = arima_approx),
-            ARIMA(remainder, stepwise = arima_approx, approximation = arima_approx)
-        ),
-        ETS = ETS(doses),
-        ETS_D = decomposition_model(
-            STL(log(doses + 1) ~ season(window = Inf)),
-            ETS(trend ~ season("N")),
-            ETS(remainder ~ season("N"))
-        ),        
+        # ARIMA = ARIMA(doses, stepwise = arima_approx, approximation = arima_approx),
+        # ARIMA_D = decomposition_model(
+        #     STL(log(doses + 1)),
+        #     ARIMA(trend, stepwise = arima_approx, approximation = arima_approx),
+        #     ARIMA(remainder, stepwise = arima_approx, approximation = arima_approx)
+        # ),
+        # ETS = ETS(doses),
+        # ETS_D = decomposition_model(
+        #     STL(log(doses + 1) ~ season(window = Inf)),
+        #     ETS(trend ~ season("N")),
+        #     ETS(remainder ~ season("N"))
+        # ),        
         # NNAR = NNETAR(log(doses) ~ AR(), n_networks = 30),
-        VAR = VAR(doses),
-        VAR_D = decomposition_model(
-            STL(log(doses + 1) ~ season(window = Inf)),
-            VAR(trend),
-            VAR(remainder)
-        ),
+        # VAR = VAR(doses),
+        # VAR_D = decomposition_model(
+        #     STL(log(doses + 1) ~ season(window = Inf)),
+        #     VAR(trend),
+        #     VAR(remainder)
+        # ),
         Forecast = combination_model(
             ARIMA(doses, stepwise = arima_approx, approximation = arima_approx),
             decomposition_model(
