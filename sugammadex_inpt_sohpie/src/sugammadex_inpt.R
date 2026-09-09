@@ -12,9 +12,8 @@ raw_pts <- read_excel(
     paste0(f, "raw/patients.xlsx"), 
     sheet = 1, 
     skip = 10, 
-    col_names = c("start", "end", "mrn", "age", "sex", "weight", "bmi", "anesth_md", "anesth_all", "surgeon", "surgery",
-                  "pt_class_base", "pt_class_case", "or_location", "asa_score", "nmba_given", "reversal_given", "tof_compliant", 
-                  "nmba_compliant", "tof_qualify", "anesth_start_datetime", "anesth_end_datetime", "induction_datetime",
+    col_names = c("start", "end", "mrn", "age", "sex", "weight", "bmi", "anesth_md", "anesth_all", "service", "surgeon", "surgery",
+                  "pt_class_case", "or_location", "asa_score", "anesth_start_datetime", "anesth_end_datetime", "induction_datetime",
                   "intubation_datetime", "extubation_datetime", "recovery_in_datetime", "recovery_out_datetime")
 ) |> 
     select(-start, -end)
@@ -29,6 +28,8 @@ raw_meds <- read_excel(
     mutate(across(medication, str_to_lower)) |> 
     select(-start, -end)
 
+zzz_meds <- distinct(raw_meds, medication) |> arrange(medication)
+
 raw_tof <- read_excel(
     paste0(f, "raw/tof.xlsx"), 
     sheet = 1, 
@@ -38,71 +39,48 @@ raw_tof <- read_excel(
     mutate(entry_datetime = ymd_hms(paste(entry_date, entry_time))) |> 
     select(-start, -end, -entry_date, -entry_time)
 
-df_roc <- raw_meds |> 
-    arrange(mrn, encounter_csn, med_datetime) |> 
-    filter(str_detect(medication, regex("rocuronium", ignore_case = TRUE))) |> 
-    summarize(
-        num_roc_doses = n(),
-        first_roc_dose = first(dose),
-        total_roc_dose = sum(dose),
-        first_roc_datetime = first(med_datetime),
-        .by = c(mrn, encounter_csn)
-    ) |> 
-    mutate(first_roc_date = floor_date(first_roc_datetime, unit = "day"))
+df_pts <- raw_pts |> 
+    arrange(mrn, anesth_start_datetime) 
 
-df_roc_last <- raw_meds |> 
-    arrange(mrn, encounter_csn, med_datetime) |> 
-    filter(str_detect(medication, regex("rocuronium", ignore_case = TRUE))) |> 
-    summarize(
-        last_roc_datetime = last(med_datetime),
-        .by = c(mrn, encounter_csn)
-    ) |> 
-    mutate(last_roc_date = floor_date(last_roc_datetime, unit = "day"))
+df_meds <- raw_meds |> 
+    arrange(mrn, encounter_csn, med_datetime)
 
-df_sug <- raw_meds |> 
-    arrange(mrn, encounter_csn, med_datetime) |> 
+df_meds_summary <- df_meds |> 
     summarize(
-        num_sug_doses = n(),
-        first_sug_dose = first(dose),
-        total_sug_dose = sum(dose),
-        first_sug_datetime = first(med_datetime),
-        .by = c(mrn, encounter_csn)
+        num_doses = n(),
+        first_dose = first(dose),
+        total_dose = sum(dose),
+        first_datetime = first(med_datetime),
+        last_datetime = last(med_datetime),
+        .by = c(mrn, encounter_csn, medication)
     ) |> 
-    mutate(first_sug_date = floor_date(first_sug_datetime, unit = "day"))
-
-df_neo <- raw_meds |> 
-    arrange(mrn, encounter_csn, med_datetime) |> 
-    filter(str_detect(medication, regex("neostig", ignore_case = TRUE))) |> 
-    summarize(
-        num_neostig_doses = n(),
-        first_neostig_dose = first(dose),
-        total_neostig_dose = sum(dose),
-        first_neostig_datetime = first(med_datetime),
-        .by = c(mrn, encounter_csn)
-    ) |> 
-    mutate(first_neostig_date = floor_date(first_neostig_datetime, unit = "day"))
-
-df_reversal_times <- df_roc_last |> 
-    left_join(df_sug, by = c("mrn", "encounter_csn", "last_roc_date" = "first_sug_date")) |> 
-    left_join(df_neo, by = c("mrn", "encounter_csn", "last_roc_date" = "first_neostig_date")) |> 
     mutate(
-        first_reversal_datetime = min(first_sug_datetime, first_neostig_datetime, na.rm = TRUE),
-        .by = c(mrn, encounter_csn)
+        across(
+            medication, \(x) case_when(
+                x == "neostigmine methylsulfate" ~ "neostig",
+                x == "rocuronium bromide" ~ "roc",
+                x == "sugammadex sodium" ~ "sug"
+            )
+        )
     ) |> 
-    select(mrn, encounter_csn, last_roc_datetime, first_reversal_datetime)
-    
+    pivot_wider(names_from = medication, values_from = c(num_doses:last_datetime)) |> 
+    select(mrn, encounter_csn, num_doses_roc, first_dose_roc, total_dose_roc, first_datetime_roc, last_datetime_roc, 
+           num_doses_sug, first_dose_sug, total_dose_sug, first_datetime_sug, last_datetime_sug,
+           num_doses_neostig, first_dose_neostig, total_dose_neostig, first_datetime_neostig, last_datetime_neostig)
+
 df_tof <- raw_tof |>  
     arrange(mrn, encounter_csn, entry_datetime) |> 
     distinct(mrn, encounter_csn) |> 
     mutate(tof_monitoring = TRUE)
 
+df_reversal_times <- df_meds_summary |> 
+    mutate(first_reversal_datetime = min(first_datetime_sug, first_datetime_neostig, na.rm = TRUE), .by = c(mrn, encounter_csn)) |> 
+    select(mrn, encounter_csn, first_reversal_datetime)
+    
 df_tof_prior <- raw_tof |> 
-    arrange(mrn, encounter_csn, entry_datetime) |> 
     inner_join(df_reversal_times, by = c("mrn", "encounter_csn")) |> 
-    filter(
-        # entry_datetime > last_roc_datetime,
-        entry_datetime < first_reversal_datetime
-    ) |> 
+    filter(entry_datetime <= first_reversal_datetime) |> 
+    arrange(mrn, encounter_csn, entry_datetime) |> 
     summarize(
         tof_before_reversal = last(tof),
         tof_datetime = last(entry_datetime),
@@ -117,15 +95,17 @@ df_tof_last <- raw_tof |>
         .by = c(mrn, encounter_csn)
     )
 
-df_pts <- raw_pts |> 
-    mutate(surgery_date = floor_date(anesth_start_datetime, unit = "day"))
-
 data_patients <- df_pts |> 
-    left_join(df_roc, by = c("mrn", "surgery_date" = "first_roc_date")) |> 
-    left_join(df_sug, by = c("mrn", "encounter_csn", "surgery_date" = "first_sug_date")) |> 
-    left_join(df_neo, by = c("mrn", "encounter_csn", "surgery_date" = "first_neostig_date")) |> 
-    left_join(df_tof, by = c("mrn", "encounter_csn")) |> 
+    inner_join(df_meds_summary, by = "mrn", relationship = "many-to-many") |> 
+    filter(first_datetime_roc >= anesth_start_datetime, first_datetime_roc < anesth_end_datetime) |> 
+    select(mrn, encounter_csn, everything()) |> 
+    left_join(df_tof, by = c("mrn", "encounter_csn")) |>
     left_join(df_tof_prior, by = c("mrn", "encounter_csn")) |> 
-    select(-contains("_csn"), -(nmba_given:tof_qualify))
+    left_join(df_tof_last, by = c("mrn", "encounter_csn"))
 
-write.xlsx(data_patients, paste0(f, "final/inpt_sugammadex_data.xlsx"), overwrite = TRUE)
+l <- list(
+    "data" = data_patients,
+    "details" = df_meds
+)
+
+write.xlsx(l, paste0(f, "final/inpt_sugammadex_data.xlsx"), overwrite = TRUE)
