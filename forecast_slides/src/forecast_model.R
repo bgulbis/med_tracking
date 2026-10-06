@@ -10,9 +10,10 @@ library(fasster)
 library(feasts)
 library(future)
 library(fcasthelpr)
+library(ggtime)
 library(tictoc)
 # library(themebg)
-# library(plotly)
+library(plotly)
 
 tic()
 options(future.rng.onMisuse = "ignore")
@@ -53,7 +54,7 @@ coltype <- c("date", "date", "text", "text", "numeric", "numeric")
 # df_epic2 <- get_xlsx_data(paste0(f, "raw/"), "target_medications_20", 1, colnm, coltype, skip = 40)
 
 num_months = lubridate::interval(mdy("10/1/2024"), Sys.Date()) %/% months(1)
-rowskip = (num_months * 26) + 39
+rowskip = (num_months * 26) + num_months + 16
 
 df_epic <- read_excel(paste0(f, "raw/target_medications_epic.xlsx"), sheet = 1, col_names = colnm, 
                       col_types = coltype, skip = rowskip) |> 
@@ -123,59 +124,44 @@ ts_doses <- df_meds |>
     fill_gaps(doses = 0L) |>
     mutate(across(dose_month, \(x) if_else(is.na(x), as.Date(month), x)))
 
-# ts_doses_thrombin <- ts_doses |> 
-#     filter(medication != "Thrombin Topical" | (medication == "Thrombin Topical" & dose_month >= as.Date(mdy("10/1/2024"))))
+# train <- filter(ts_doses, dose_month <= as.Date(target_date - months(12)))
+# test <- filter(ts_doses, dose_month > as.Date(target_date - months(12)))
 
 plan("multisession")
 # tic()
 # print("creating models...")
 arima_approx <- FALSE
+period_val <- 3
 
 fit_doses <- ts_doses |> 
-    filter(medication != "Thrombin Topical" | (medication == "Thrombin Topical" & dose_month >= as.Date(mdy("10/1/2024")))) |> 
-    # filter(dose_month < as.Date(mdy("6/1/2026"))) |> 
+    filter(
+        (medication != "Thrombin Topical" & dose_month >= as.Date(target_date - months(48))) | 
+            (medication == "Thrombin Topical" & dose_month >= as.Date(mdy("10/1/2024")))
+    ) |>
     model(
-        # ARIMA = ARIMA(doses, stepwise = arima_approx, approximation = arima_approx),
-        # ARIMA_D = decomposition_model(
-        #     STL(log(doses + 1)),
-        #     ARIMA(trend, stepwise = arima_approx, approximation = arima_approx),
-        #     ARIMA(remainder, stepwise = arima_approx, approximation = arima_approx)
-        # ),
-        # ETS = ETS(doses),
-        # ETS_D = decomposition_model(
-        #     STL(log(doses + 1) ~ season(window = Inf)),
-        #     ETS(trend ~ season("N")),
-        #     ETS(remainder ~ season("N"))
-        # ),        
-        # NNAR = NNETAR(log(doses) ~ AR(), n_networks = 30),
+        # ARIMA = ARIMA(log(doses + 1), stepwise = arima_approx, approximation = arima_approx),
+        ARIMA_D = decomposition_model(
+            STL(log(doses + 1) ~ season(period = 3)),
+            ARIMA(trend, stepwise = arima_approx, approximation = arima_approx),
+            ARIMA(remainder, stepwise = arima_approx, approximation = arima_approx)
+        ),
+        ETS_D = decomposition_model(STL(log(doses + 1) ~ season(period = 3)), ETS(trend), ETS(remainder)),
+        # ETS_D1 = decomposition_model(STL(log(doses + 1)), ETS(trend), ETS(remainder)),
+        # NNAR = NNETAR(log(doses + 1) ~ AR(), n_networks = 30),
         # VAR = VAR(doses),
-        # VAR_D = decomposition_model(
-        #     STL(log(doses + 1) ~ season(window = Inf)),
-        #     VAR(trend),
-        #     VAR(remainder)
-        # ),
+        VAR_D = decomposition_model(STL(log(doses + 1) ~ season(period = 3)), VAR(trend), VAR(remainder)),
         Forecast = combination_model(
-            ARIMA(doses, stepwise = arima_approx, approximation = arima_approx),
             decomposition_model(
-                STL(log(doses + 1)),
+                STL(log(doses + 1) ~ season(period = 3)),
                 ARIMA(trend, stepwise = arima_approx, approximation = arima_approx),
                 ARIMA(remainder, stepwise = arima_approx, approximation = arima_approx)
             ),
-            ETS(doses),
-            decomposition_model(
-                STL(log(doses + 1) ~ season(window = Inf)),
-                ETS(trend ~ season("N")),
-                ETS(remainder ~ season("N"))
-            ),
-            # NNAR = NNETAR(log(doses) ~ AR(), n_networks = 30),
-            VAR(doses),
-            decomposition_model(
-                STL(log(doses + 1) ~ season(window = Inf)),
-                VAR(trend),
-                VAR(remainder)
-            )
+            decomposition_model(STL(log(doses + 1) ~ season(period = 3)), ETS(trend), ETS(remainder)),
+            decomposition_model(STL(log(doses + 1) ~ season(period = 3)), VAR(trend), VAR(remainder))
         )
     )
+
+# fit_doses = bind_rows(as_tibble(fit_doses1), as_tibble(fit_doses2))
 
 # mutate(
     #     Forecast = if_else(
@@ -192,7 +178,7 @@ fit_doses <- ts_doses |>
 # print("done...")
 plan("sequential")
 
-# df_acc <- accuracy(fit_doses)
+df_acc <- accuracy(fit_doses)
 # 
 # df_acc2 <- df_acc |>
 #     select(medication, .model, RMSE) |>
@@ -229,6 +215,7 @@ df_doses <- ts_doses |>
 # write_csv(df_doses, "data/final/df_doses.csv")
 
 # df_doses |>
+#     filter(medication == "Sugammadex") |> 
 #     plot_ly(x = ~.month, y = ~.mean, color = ~.model) |>
 #     add_lines()
 
